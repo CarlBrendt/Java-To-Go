@@ -30,6 +30,7 @@ make up
 
 ## Availability
 
+- Frontend: http://localhost:3000 <br>
 - Service: http://localhost:8585 <br>
 - MinIO Console: http://localhost:9001 (mws / minio123) <br>
 - Swagger UI: http://localhost:8585/api/openapi <br>

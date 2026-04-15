@@ -156,28 +156,44 @@ async def migration_status(
 ):
     """Проверяет статус миграции — есть ли готовый Go-проект."""
     service = request.app.state.minio
-    bucket_name = settings.minio_bucket
 
     try:
-        # Проверяем есть ли report.md в output
-        output_prefix = f"{user_id}/output/"
-        objects = await service.list_objects(bucket_name, output_prefix)
+        # Проверяем есть ли ZIP в ready/
+        objects = []
+        for obj in service.client.list_objects(
+            settings.minio_bucket,
+            prefix=f"ready/user_{user_id}/",
+            recursive=True,
+        ):
+            objects.append(obj.object_name)
 
-        if not objects:
+        if objects:
+            has_zip = any(obj.endswith(".zip") for obj in objects)
             return {
-                "status": "not_found",
-                "message": "No migration output found. Run /migrate first.",
+                "status": "completed" if has_zip else "in_progress",
+                "files_count": len(objects),
+                "has_zip": has_zip,
+                "download_url": f"/api/v1/minio/minio-download-ready-zip?user_id={user_id}",
             }
 
-        has_report = any("report.md" in obj for obj in objects)
-        has_go_files = any(obj.endswith(".go") for obj in objects)
+        processed = []
+        for obj in service.client.list_objects(
+            settings.minio_bucket,
+            prefix=f"processed/user_{user_id}/",
+            recursive=True,
+        ):
+            processed.append(obj.object_name)
+
+        if processed:
+            return {
+                "status": "in_progress",
+                "message": "Migration is running...",
+                "files_count": len(processed),
+            }
 
         return {
-            "status": "completed" if has_report else "in_progress",
-            "files_count": len(objects),
-            "has_report": has_report,
-            "has_go_files": has_go_files,
-            "download_url": f"/minio-download-ready-zip?user_id={user_id}",
+            "status": "not_found",
+            "message": "No files found. Upload a ZIP first.",
         }
 
     except Exception as e:

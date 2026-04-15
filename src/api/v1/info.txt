@@ -1,0 +1,9 @@
+# 1. Загрузить ZIP и сразу мигрировать
+POST /minio-upload-zip?user_id=user123&auto_migrate=true
+
+# 2. Или загрузить отдельно, мигрировать отдельно
+POST /minio-upload-zip?user_id=user123
+POST /migrate?user_id=user123
+
+# 3. Скачать результат
+GET /minio-download-ready-zip?user_id=user123

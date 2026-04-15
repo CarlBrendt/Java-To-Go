@@ -35,33 +35,33 @@ make up
 - Swagger UI: http://localhost:8585/api/openapi <br>
 
 # Endpoints
-
-## 1. Upload ZIP and migrate immediately
+```
+# 1. Upload ZIP and migrate immediately
 POST /minio-upload-zip?user_id=user123&auto_migrate=true
 
-## 2. Or upload separately, migrate separately
+# 2. Or upload separately, migrate separately
 POST /minio-upload-zip?user_id=user123
 POST /migrate?user_id=user123
 
-## 3. Download the result
+# 3. Download the result
 GET /minio-download-ready-zip?user_id=user123
-
+```
 
 ## 🚀 What makes this project unique
 
-This project is a full-fledged migration copilot that:
+This project is a full-fledged migration copilot that: <br>
 
-✅ Converts Java → Go automatically with high accuracy
-✅ Validates the migration through automated testing (endpoint compatibility, data types, response structure)
-✅ Provides actionable recommendations to the engineer for manual improvements or edge cases
-✅ Generates comprehensive reports so you know exactly what worked, what was fixed, and what needs review
+✅ Converts Java → Go automatically with high accuracy <br>
+✅ Validates the migration through automated testing (endpoint compatibility, data types, response structure) <br>
+✅ Provides actionable recommendations to the engineer for manual improvements or edge cases <br>
+✅ Generates comprehensive reports so you know exactly what worked, what was fixed, and what needs review <br>
 
 
 # Future Development: VS Code Plugin
 
 The next evolution of the Java2Go Migration Pipeline is a VS Code extension that brings the entire migration workflow directly into your editor. Here's what the plugin will do: <br>
 
-🧩 What the VS Code Plugin Does
+# 🧩 What the VS Code Plugin Does
 
 ## 1. Interactive Migration Assessment
 

@@ -1,6 +1,6 @@
 # Java2Go Migration Pipeline
 
-Intelligent assistant for automatic migration of Java Spring Boot microservices to Go (Gin).
+Intelligent copilot for automatic migration of Java Spring Boot microservices to Go (Gin).
 
 # What it does
 

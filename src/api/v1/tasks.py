@@ -1,16 +1,63 @@
 from __future__ import annotations
 
 import asyncio
+import io
+import json
 import logging
 import os
 import shutil
 import tempfile
+from datetime import datetime, timezone
 from typing import List, Dict
+
+from minio.error import S3Error
 
 from src.settings.config import APISettings
 
 settings = APISettings()
 logger = logging.getLogger(__name__)
+
+
+def migration_status_object_key(user_id: str) -> str:
+    """Ключ JSON в MinIO с фазой миграции (running / failed)."""
+    return f"meta/user_{user_id}/migration_status.json"
+
+
+async def _put_migration_status_json(
+    service,
+    bucket_name: str,
+    object_key: str,
+    payload: dict,
+) -> None:
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    loop = asyncio.get_running_loop()
+
+    def _sync() -> None:
+        service.client.put_object(
+            bucket_name,
+            object_key,
+            io.BytesIO(body),
+            len(body),
+        )
+
+    await loop.run_in_executor(None, _sync)
+
+
+async def _delete_migration_status_object(
+    service,
+    bucket_name: str,
+    object_key: str,
+) -> None:
+    loop = asyncio.get_running_loop()
+
+    def _sync() -> None:
+        try:
+            service.client.remove_object(bucket_name, object_key)
+        except S3Error as e:
+            if getattr(e, "code", None) not in ("NoSuchKey",):
+                raise
+
+    await loop.run_in_executor(None, _sync)
 
 
 async def upload_and_maybe_migrate(
@@ -20,6 +67,7 @@ async def upload_and_maybe_migrate(
     bucket_name: str,
     user_id: str,
     auto_migrate: bool = False,
+    mws_model_name: str | None = None,
 ):
     """Загружает ZIP, распаковывает, и опционально запускает миграцию."""
     await service.upload_zip_and_extract_in_memory(
@@ -34,6 +82,7 @@ async def upload_and_maybe_migrate(
             service=service,
             bucket_name=bucket_name,
             user_id=user_id,
+            mws_model_name=mws_model_name,
         )
 
 
@@ -41,12 +90,15 @@ async def run_migration_for_user(
     service,
     bucket_name: str,
     user_id: str,
+    mws_model_name: str | None = None,
 ) -> dict:
     """
     Скачивает Java-проект(ы) из MinIO → мигрирует каждый → загружает результат.
     Поддерживает несколько проектов в одном ZIP.
     """
     tmp_dir = None
+    marker_key: str | None = None
+    marker_active = False
     try:
         tmp_dir = tempfile.mkdtemp(prefix=f"migration_{user_id}_")
         java_dir = os.path.join(tmp_dir, "java_projects")
@@ -74,6 +126,18 @@ async def run_migration_for_user(
         if not projects:
             return {"status": "error", "message": "No Java projects found"}
 
+        marker_key = migration_status_object_key(user_id)
+        await _put_migration_status_json(
+            service,
+            bucket_name,
+            marker_key,
+            {
+                "phase": "running",
+                "started_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        marker_active = True
+
         # 3. Мигрируем каждый проект
         from src.copilot.run import run_migration
 
@@ -93,6 +157,7 @@ async def run_migration_for_user(
                     java_path=project_path,
                     output_dir=output_dir,
                     jar_path=jar_path,
+                    mws_model_name=mws_model_name,
                 )
 
                 results.append({
@@ -160,6 +225,10 @@ async def run_migration_for_user(
             )
         )
 
+        if marker_key:
+            await _delete_migration_status_object(service, bucket_name, marker_key)
+        marker_active = False
+
         logger.info(
             f"Uploaded {object_name} "
             f"({total_files} files, {len(zip_bytes)} bytes, "
@@ -175,15 +244,21 @@ async def run_migration_for_user(
             "results": results,
         }
 
-
-        return {
-            "status": "completed",
-            "projects_count": len(projects),
-            "total_files_uploaded": total_uploaded,
-            "results": results,
-        }
-
     except Exception as e:
+        if marker_active and marker_key:
+            try:
+                await _put_migration_status_json(
+                    service,
+                    bucket_name,
+                    marker_key,
+                    {
+                        "phase": "failed",
+                        "error": str(e)[:2000],
+                        "finished_at": datetime.now(timezone.utc).isoformat(),
+                    },
+                )
+            except Exception as w:
+                logger.warning("Could not write migration failed marker: %s", w)
         logger.exception(f"Migration failed for user {user_id}: {e}")
         return {"status": "error", "message": str(e)}
 

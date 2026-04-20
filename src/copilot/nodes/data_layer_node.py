@@ -82,7 +82,7 @@ async def node_data_layer(state: MigrationGraphState) -> dict:
     ]
 
     settings = APISettings()
-    llm = build_mws_chat_llm(settings)
+    llm = build_mws_chat_llm(settings, state.get("mws_model_name"))
 
     for batch_idx, batch in enumerate(batches):
         batch_name = (

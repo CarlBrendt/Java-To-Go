@@ -41,7 +41,7 @@ async def download_ready_zip(
 
     safe_name = download_name.replace('"', "_")
 
-    return JSONResponse(
+    return Response(
         content=data,
         status_code=200,
         media_type="application/zip",

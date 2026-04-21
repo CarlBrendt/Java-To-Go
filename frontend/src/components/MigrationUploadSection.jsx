@@ -3,8 +3,22 @@ import UploadMiniGame from "./UploadMiniGame";
 
 const ALLOWED_ARCHIVE_TYPE = ".zip";
 const API_BASE = "/api/v1/minio";
+const VALIDATION_API_BASE = "/api/v1/validation";
 const POLL_INTERVAL_MS = 5000;
-
+const VALIDATION_STAGE_LABELS = {
+  queued: "В очереди",
+  preparing_reference_source: "Подготовка Java reference",
+  starting_migration: "Запуск миграции reference-сервиса",
+  waiting_for_go_artifact: "Ожидание сгенерированного Go-артефакта",
+  starting_reference_runtime: "Запуск Java reference",
+  downloading_go_artifact: "Загрузка Go-артефакта",
+  preparing_go_source: "Подготовка Go-кода",
+  building_go_runtime: "Сборка Go-сервиса",
+  starting_go_runtime: "Запуск Go-сервиса",
+  running_parity_tests: "Запуск parity-тестов",
+  finished: "Проверка завершена",
+  failed: "Проверка завершилась с ошибкой",
+};
 function MigrationUploadSection() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isDragActive, setIsDragActive] = useState(false);
@@ -14,8 +28,12 @@ function MigrationUploadSection() {
   const [downloadUrl, setDownloadUrl] = useState("");
   const [downloadName, setDownloadName] = useState("migrated-service.zip");
   const [migrationStatus, setMigrationStatus] = useState("");
+  const [validationRunId, setValidationRunId] = useState("");
+  const [validationStatus, setValidationStatus] = useState(null);
+  const [isValidationStarting, setIsValidationStarting] = useState(false);
   const abortControllerRef = useRef(null);
   const pollRef = useRef(null);
+  const validationPollRef = useRef(null);
   const userIdRef = useRef(null);
 
   const selectedFileSize = useMemo(() => {
@@ -45,6 +63,20 @@ function MigrationUploadSection() {
       clearInterval(pollRef.current);
       pollRef.current = null;
     }
+  };
+
+  const stopValidationPolling = () => {
+    if (validationPollRef.current) {
+      clearInterval(validationPollRef.current);
+      validationPollRef.current = null;
+    }
+  };
+
+  const resetValidationState = () => {
+    stopValidationPolling();
+    setValidationRunId("");
+    setValidationStatus(null);
+    setIsValidationStarting(false);
   };
 
   // Поллинг статуса миграции
@@ -96,6 +128,7 @@ function MigrationUploadSection() {
   };
 
   const handleZipValidation = (file) => {
+    if (validationInProgress || isValidationStarting) return;
     if (!file) return;
 
     const isZipByMime = file.type === "application/zip";
@@ -109,6 +142,7 @@ function MigrationUploadSection() {
     }
 
     resetGeneratedFile();
+    resetValidationState();
     setSelectedFile(file);
     setErrorMessage("");
     setSuccessMessage("");
@@ -130,8 +164,9 @@ function MigrationUploadSection() {
   };
 
   const handleResetSelection = () => {
-    if (isUploading) return;
+    if (isUploading || validationInProgress || isValidationStarting) return;
     stopPolling();
+    resetValidationState();
     resetGeneratedFile();
     setSelectedFile(null);
     setSuccessMessage("");
@@ -141,9 +176,10 @@ function MigrationUploadSection() {
   };
 
   const handleStartMigration = async () => {
-    if (!selectedFile || isUploading) return;
+    if (!selectedFile || isUploading || validationInProgress || isValidationStarting) return;
 
     resetGeneratedFile();
+    resetValidationState();
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -198,6 +234,7 @@ function MigrationUploadSection() {
   const handleStopMigration = () => {
     abortControllerRef.current?.abort();
     stopPolling();
+    resetValidationState();
     setIsUploading(false);
     setMigrationStatus("");
 
@@ -210,14 +247,96 @@ function MigrationUploadSection() {
     }
   };
 
+  const pollValidationRun = async (runId) => {
+    const response = await fetch(`${VALIDATION_API_BASE}/runs/${runId}`);
+    if (!response.ok) {
+      throw new Error(`Validation status failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    setValidationStatus(data);
+
+    if (data.status !== "queued" && data.status !== "running") {
+      stopValidationPolling();
+    }
+  };
+
+  const startValidationPolling = (runId) => {
+    stopValidationPolling();
+    validationPollRef.current = setInterval(() => {
+      pollValidationRun(runId).catch((error) => {
+        stopValidationPolling();
+        setValidationStatus({
+          status: "failed",
+          stage: "failed",
+          summary: error.message || "Не удалось получить статус проверки.",
+          parity_percent: null,
+          tests_total: 0,
+          tests_passed: 0,
+          tests_failed: 0,
+        });
+      });
+    }, POLL_INTERVAL_MS);
+  };
+
+  const handleStartValidation = async () => {
+    if (isValidationStarting || validationInProgress) return;
+
+    resetValidationState();
+    setIsValidationStarting(true);
+
+    try {
+      const response = await fetch(`${VALIDATION_API_BASE}/runs`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Validation start failed: ${response.status}`);
+      }
+
+      const createdRun = await response.json();
+      setValidationRunId(createdRun.validation_run_id);
+      await pollValidationRun(createdRun.validation_run_id);
+      startValidationPolling(createdRun.validation_run_id);
+    } catch (error) {
+      setValidationStatus({
+        status: "failed",
+        stage: "failed",
+        summary: error.message || "Не удалось запустить проверку.",
+        parity_percent: null,
+        tests_total: 0,
+        tests_passed: 0,
+        tests_failed: 0,
+      });
+    } finally {
+      setIsValidationStarting(false);
+    }
+  };
+
   useEffect(
     () => () => {
       if (downloadUrl) URL.revokeObjectURL(downloadUrl);
       abortControllerRef.current?.abort();
       stopPolling();
+      stopValidationPolling();
     },
     [downloadUrl]
   );
+
+  const validationStageLabel = validationStatus?.stage
+    ? VALIDATION_STAGE_LABELS[validationStatus.stage] ?? validationStatus.stage
+    : "";
+  const validationPercent = validationStatus?.parity_percent;
+  const migrationInProgress = isUploading;
+  const validationInProgress =
+    validationStatus?.status === "queued" || validationStatus?.status === "running";
+  const canStartValidation = !isValidationStarting && !validationInProgress;
+  const canStartMigration = !validationInProgress && !isValidationStarting;
+  const canEditArchive = !migrationInProgress && !validationInProgress && !isValidationStarting;
 
   return (
     <section className="upload-wrapper">
@@ -230,6 +349,7 @@ function MigrationUploadSection() {
         <label
           className={`dropzone ${isDragActive ? "dropzone--active" : ""}`}
           onDragOver={(event) => {
+            if (!canEditArchive) return;
             event.preventDefault();
             setIsDragActive(true);
           }}
@@ -240,6 +360,7 @@ function MigrationUploadSection() {
             type="file"
             accept={ALLOWED_ARCHIVE_TYPE}
             onChange={handleInputChange}
+            disabled={!canEditArchive}
           />
           <span className="dropzone__icon" aria-hidden="true">
             &#8682;
@@ -255,11 +376,12 @@ function MigrationUploadSection() {
           <p className="upload-result upload-result--success">
             Файл: {selectedFile.name} ({selectedFileSize})
           </p>
-          {!isUploading && (
+          {!migrationInProgress && (
             <button
               className="action-button action-button--neutral"
               type="button"
               onClick={handleResetSelection}
+              disabled={!canEditArchive}
             >
               Удалить
             </button>
@@ -292,6 +414,7 @@ function MigrationUploadSection() {
               className="action-button action-button--primary"
               type="button"
               onClick={handleStartMigration}
+              disabled={!canStartMigration}
             >
               Повторить
             </button>
@@ -301,6 +424,7 @@ function MigrationUploadSection() {
               className="action-button action-button--primary"
               type="button"
               onClick={handleStartMigration}
+              disabled={!canStartMigration}
             >
               Запустить миграцию
             </button>
@@ -321,6 +445,80 @@ function MigrationUploadSection() {
       {errorMessage && (
         <p className="upload-result upload-result--error">{errorMessage}</p>
       )}
+
+      <div className="validation-card">
+        <div className="validation-card__header">
+          <div>
+            <h3>Проверка</h3>
+            <p>
+              Берет Java reference из lowcode, прогоняет миграцию через основной backend и показывает общую сходимость.
+            </p>
+          </div>
+          <button
+            className="action-button action-button--primary"
+            type="button"
+            onClick={handleStartValidation}
+            disabled={!canStartValidation}
+          >
+            {isValidationStarting || validationInProgress ? "Проверка идет" : "Запустить"}
+          </button>
+        </div>
+
+        {validationInProgress && (
+          <p className="validation-card__empty">
+            Во время проверки ручная миграция и изменение архива временно заблокированы.
+          </p>
+        )}
+
+        {!validationStatus && (
+          <p className="validation-card__empty">
+            Нажмите «Запустить», чтобы orchestrator сам подготовил reference-проект, сгенерировал Go-кандидат и начал проверку.
+          </p>
+        )}
+
+        {validationStatus && (
+          <div className="validation-card__grid">
+            <div className="validation-metric">
+              <span className="validation-metric__label">Статус</span>
+              <strong>{validationStatus.status}</strong>
+            </div>
+            <div className="validation-metric">
+              <span className="validation-metric__label">Стадия</span>
+              <strong>{validationStageLabel || "—"}</strong>
+            </div>
+            <div className="validation-metric">
+              <span className="validation-metric__label">Прохождение</span>
+              <strong>{validationPercent == null ? "—" : `${validationPercent}%`}</strong>
+            </div>
+            <div className="validation-metric">
+              <span className="validation-metric__label">Тесты</span>
+              <strong>
+                {validationStatus.tests_passed}/{validationStatus.tests_total}
+              </strong>
+            </div>
+          </div>
+        )}
+
+        {validationRunId && (
+          <p className="validation-card__run-id">
+            Run ID: <code>{validationRunId}</code>
+          </p>
+        )}
+
+        {validationStatus?.summary && (
+          <p
+            className={`upload-result ${
+              validationStatus.status === "failed"
+                ? "upload-result--error"
+                : validationStatus.status === "finished"
+                  ? "upload-result--success"
+                  : "upload-result--info"
+            }`}
+          >
+            {validationStatus.summary}
+          </p>
+        )}
+      </div>
     </section>
   );
 }

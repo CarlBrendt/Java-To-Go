@@ -1,5 +1,24 @@
 services:
 
+  validation-orchestrator:
+    build:
+      context: ./validation/validation-orchestrator
+      dockerfile: Dockerfile
+    container_name: validation-orchestrator
+    ports:
+      - "8095:8095"
+    environment:
+      - ORCHESTRATOR_REPO_ROOT=/repo
+      - ORCHESTRATOR_ARTIFACT_BASE_URL=http://server:8585
+      - ORCHESTRATOR_WORKSPACE_ROOT=/repo/.validation-runs
+      - ORCHESTRATOR_VALIDATION_NETWORK=validation-stack_default
+    volumes:
+      - .:/repo
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - app-network
+    restart: unless-stopped
+
   frontend:
     build:
       context: ./frontend
@@ -26,9 +45,12 @@ services:
     environment:
       - GIT_TERMINAL_PROMPT=0
       - GOPATH=/root/go
+      - VALIDATION_ORCHESTRATOR_BASE_URL=http://validation-orchestrator:8095
     volumes:
       - go-cache:/root/go
     depends_on:
+      validation-orchestrator:
+        condition: service_started
       minio:
         condition: service_healthy
       minio-init:

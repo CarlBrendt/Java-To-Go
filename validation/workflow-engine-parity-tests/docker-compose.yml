@@ -1,0 +1,13 @@
+services:
+  parity-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: workflow-engine-parity-tests
+    command:
+      - mvn
+      - -Dmaven.repo.local=/tmp/.m2
+      - -Dparity.enabled=true
+      - -Dparity.java.base-url=${PARITY_JAVA_BASE_URL:-http://workflow-engine-java:9090}
+      - -Dparity.go.base-url=${PARITY_GO_BASE_URL:-http://workflow-engine-go:8080}
+      - test

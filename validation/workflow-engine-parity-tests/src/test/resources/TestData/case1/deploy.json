@@ -1,0 +1,33 @@
+{
+  "name": "case1",
+  "type": "complex",
+  "compiled": {
+    "start": "a",
+    "activities": [
+      {
+        "scoped": true,
+        "id": "a",
+        "type": "inject",
+        "injectData": {
+          "va": "a"
+        },
+        "transition": "b"
+      },
+      {
+        "id": "b",
+        "type": "inject",
+        "injectData": {
+          "vb": "b"
+        },
+        "transition": "c"
+      },
+      {
+        "id": "c",
+        "type": "inject",
+        "injectData": {
+          "vc": "jp{a.va}"
+        }
+      }
+    ]
+  }
+}

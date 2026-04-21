@@ -4,3 +4,13 @@ venv/
 build/
 *task_repo.egg-info
 .env
+.idea/
+.pycache/
+.validation-runs/
+lowcode/
+validation/.idea/
+validation/**/target/
+validation/**/.m2/
+/validation/workflow-engine-parity-tests/.m2/
+/server
+/validation-orchestrator

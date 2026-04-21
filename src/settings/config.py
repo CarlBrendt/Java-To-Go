@@ -26,6 +26,7 @@ class APISettings(BaseSettings):
     minio_secret_key:str
     minio_secure:bool
     minio_bucket:str="java-to-go"
+    validation_orchestrator_base_url:str="http://validation-orchestrator:8095"
 
     def resolve_mws_base_url(self)->str|None:
         raw=(self.mws_gpt_base_url or "").strip()

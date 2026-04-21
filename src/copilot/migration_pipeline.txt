@@ -18,6 +18,9 @@
 └─────────────────────────────────────────────────────────────────┘
 
 
+parse → plan → data_layer → business_logic → api_layer
+     → consolidate → verify → build_check → report
+
 #### 1. Модель Состояния (State Schema)
 В LangGraph мы определим единый объект состояния (`GlobalState`), который будет передаваться между узлами. Он будет содержать:
 *   **`java_source_code`**: Исходный код Java (разбитый на файлы или сущности).

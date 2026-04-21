@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import TypedDict, List, Dict, Any
 
 
@@ -30,6 +29,8 @@ class MigrationGraphState(TypedDict, total=False):
     # ── Stage 5: API Layer ──
     generated_handlers_code: str
 
+    consolidation_fixes: List[str]
+    
     # ── All generated code ──
     generated_go_code: Dict[str, str]
 

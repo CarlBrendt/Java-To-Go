@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import os
 import subprocess
 import logging
@@ -10,14 +8,18 @@ from src.copilot.graph_state import MigrationGraphState
 
 logger = logging.getLogger(__name__)
 
-
 async def node_build_check(state: MigrationGraphState) -> dict:
-    """Stage 7: Build Check.
-
-    1. Применяет детерминистические фиксы
-    2. Сохраняет файлы
-    3. Запускает go build ОДИН раз
-    4. Собирает ошибки в структурированный отчёт для инженера
+    """
+    Stage 7: Build Check.
+    
+    После consolidate код уже должен быть чистым.
+    Эта нода только:
+    1. Сохраняет файлы на диск
+    2. Генерирует go.mod
+    3. Запускает go build
+    4. Собирает ошибки в отчёт
+    
+    НЕ модифицирует код — это работа consolidate.
     """
     generated_go_code = dict(state.get("generated_go_code", {}))
     output_dir = os.path.abspath(
@@ -40,19 +42,8 @@ async def node_build_check(state: MigrationGraphState) -> dict:
 
     fixes_applied: List[str] = []
 
-    # ── 1. Детерминистические фиксы ──
-    generated_go_code, f = _fix_duplicate_main(generated_go_code)
-    fixes_applied.extend(f)
-
-    generated_go_code, f = _fix_package_conflicts(generated_go_code)
-    fixes_applied.extend(f)
-
-    generated_go_code, f = _fix_unused_imports(generated_go_code)
-    fixes_applied.extend(f)
-
-    generated_go_code, f = _fix_missing_types(generated_go_code)
-    fixes_applied.extend(f)
-
+    # ── 1. Минимальные фиксы (только то, что consolidate не покрывает) ──
+    # Только синтаксические фиксы, которые зависят от контекста файловой системы
     for fname in list(generated_go_code.keys()):
         if not fname.endswith(".go"):
             continue
@@ -115,7 +106,7 @@ async def node_build_check(state: MigrationGraphState) -> dict:
     _run_command(["go", "mod", "download"], build_dir, 180, env)
     _run_command(["go", "mod", "tidy"], build_dir, 180, env)
 
-    # ── 6. go build (одна попытка) ──
+    # ── 6. go build ──
     build_result = _run_command(
         ["go", "build", "./..."], build_dir, 120, env
     )
@@ -123,10 +114,9 @@ async def node_build_check(state: MigrationGraphState) -> dict:
     build_passed = build_result["returncode"] == 0
     raw_errors = build_result["error"] if not build_passed else ""
 
-    # ── 7. Парсим ошибки в структурированный формат ──
     parsed_errors = _parse_build_errors(raw_errors)
 
-    # ── 8. go vet (если build прошёл) ──
+    # ── 7. go vet (если build прошёл) ──
     vet_warnings = []
     if build_passed:
         vet_result = _run_command(
@@ -135,18 +125,17 @@ async def node_build_check(state: MigrationGraphState) -> dict:
         if vet_result["returncode"] != 0:
             vet_warnings = _parse_build_errors(vet_result["error"])
 
-    # ── 9. Проверка запуска ──
+    # ── 8. Проверка запуска ──
     startup_ok = False
     if build_passed:
         startup_ok = _check_startup(build_dir, env)
 
-    # ── 10. Генерируем отчёт для инженера ──
+    # ── 9. Отчёт ──
     report = _generate_build_report(
-        fixes_applied, parsed_errors, vet_warnings, build_passed,
-        startup_ok,
+        fixes_applied, parsed_errors, vet_warnings,
+        build_passed, startup_ok,
     )
 
-    # Сохраняем отчёт
     report_path = os.path.join(build_dir, "BUILD_REPORT.md")
     with open(report_path, "w") as f:
         f.write(report)
@@ -159,17 +148,6 @@ async def node_build_check(state: MigrationGraphState) -> dict:
         f"Errors: {len(parsed_errors)}, "
         f"Fixes applied: {len(fixes_applied)}"
     )
-
-    if fixes_applied:
-        for fix in fixes_applied[:5]:
-            logger.info(f"  fix: {fix}")
-
-    if parsed_errors:
-        for err in parsed_errors[:5]:
-            logger.info(
-                f"  err: {err['file']}:{err['line']} "
-                f"→ {err['message']}"
-            )
 
     return {
         "build_passed": build_passed,
@@ -184,7 +162,6 @@ async def node_build_check(state: MigrationGraphState) -> dict:
         ),
         "current_node": "build_check",
     }
-
 
 # ──────────────────────────────────────────────
 # Error parsing & report generation

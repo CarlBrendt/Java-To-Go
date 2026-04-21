@@ -5,3 +5,6 @@ build/
 *task_repo.egg-info
 .env
 .venv/
+java-test/
+output/
+lowcode/

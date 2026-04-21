@@ -1,10 +1,21 @@
-# src/copilot/nodes/consolidation_node.py
-
-from __future__ import annotations
-
+"""
+    # Phase 0:  Базовые типы (JsonNode и т.д.)
+    # Phase 1:  Унификация package
+    # Phase 2:  Построение реестров
+    # Phase 3:  Удаление фантомных импортов
+    # Phase 4:  Удаление дублей типов
+    # Phase 5:  Удаление дублей функций
+    # Phase 5.5: Дедупликация методов внутри файлов
+    # Phase 6:  Фикс ссылок
+    # Пересборка реестров
+    # Phase 7:  Генерация заглушек
+    # Phase 8:  Пересборка imports
+    # Phase 9:  Финальная очистка
+    # Phase 10: Safety net для stubs
+"""
 import re
 import logging
-from typing import Dict, List, Set, Tuple, Optional
+from typing import Dict, List, Set, Tuple
 
 from src.copilot.graph_state import MigrationGraphState
 
@@ -85,21 +96,6 @@ KNOWN_THIRD_PARTY = {
 
 
 async def node_consolidate(state: MigrationGraphState) -> dict:
-    """
-    Нода консолидации: превращает разрозненный LLM-вывод
-    в единый компилируемый Go-проект (package main).
-
-    Работает ПОЛНОСТЬЮ ДЕТЕРМИНИСТИЧЕСКИ — без вызовов LLM.
-
-    Шаги:
-    1. Унификация package → всё `package main`
-    2. Сбор реестра определённых типов и функций
-    3. Удаление фантомных импортов
-    4. Удаление дублей типов
-    5. Фикс ссылок между файлами
-    6. Генерация недостающих заглушек
-    7. Проверка и фикс import блоков
-    """
     generated_code = dict(state.get("generated_go_code", {}))
 
     if not generated_code:
@@ -111,80 +107,82 @@ async def node_consolidate(state: MigrationGraphState) -> dict:
         }
 
     fixes_applied: List[str] = []
+    # ═══ PHASE 0: Гарантируем базовые типы ═══
+    generated_code, f = _phase_ensure_base_types(generated_code)
+    fixes_applied.extend(f)
 
-    # ═══════════════════════════════════════════
-    # PHASE 1: Унификация package
-    # ═══════════════════════════════════════════
-    generated_code, phase1_fixes = _phase_unify_packages(generated_code)
-    fixes_applied.extend(phase1_fixes)
+    # ═══ PHASE 1: Унификация package ═══
+    generated_code, f = _phase_unify_packages(generated_code)
+    fixes_applied.extend(f)
 
-    # ═══════════════════════════════════════════
-    # PHASE 2: Построение реестров
-    # ═══════════════════════════════════════════
+    # ═══ PHASE 2: Построение реестров ═══
     type_registry = _build_type_registry(generated_code)
     func_registry = _build_func_registry(generated_code)
     logger.info(
-        f"Registry: {len(type_registry)} types, "
+        f"Initial registry: {len(type_registry)} types, "
         f"{len(func_registry)} functions"
     )
 
-    # ═══════════════════════════════════════════
-    # PHASE 3: Удаление фантомных импортов
-    # ═══════════════════════════════════════════
-    generated_code, phase3_fixes = _phase_remove_fake_imports(
-        generated_code
-    )
-    fixes_applied.extend(phase3_fixes)
+    # ═══ PHASE 3: Удаление фантомных импортов ═══
+    generated_code, f = _phase_remove_fake_imports(generated_code)
+    fixes_applied.extend(f)
 
-    # ═══════════════════════════════════════════
-    # PHASE 4: Удаление дублей типов
-    # ═══════════════════════════════════════════
-    generated_code, phase4_fixes = _phase_remove_duplicate_types(
+    # ═══ PHASE 4: Удаление дублей типов ═══
+    generated_code, f = _phase_remove_duplicate_types(
         generated_code, type_registry
     )
-    fixes_applied.extend(phase4_fixes)
+    fixes_applied.extend(f)
 
-    # ═══════════════════════════════════════════
-    # PHASE 5: Удаление дублей функций
-    # ═══════════════════════════════════════════
-    generated_code, phase5_fixes = _phase_remove_duplicate_funcs(
+    # ═══ PHASE 5: Удаление дублей функций ═══
+    generated_code, f = _phase_remove_duplicate_funcs(
         generated_code, func_registry
     )
-    fixes_applied.extend(phase5_fixes)
+    fixes_applied.extend(f)
 
-    # ═══════════════════════════════════════════
-    # PHASE 6: Фикс ссылок (package prefixes)
-    # ═══════════════════════════════════════════
-    generated_code, phase6_fixes = _phase_fix_references(
+    # ═══ PHASE 5.5: Дедупликация методов внутри файлов ═══
+    generated_code, f = _phase_dedup_methods_in_file(generated_code)
+    fixes_applied.extend(f)
+
+    # ═══ PHASE 6: Фикс ссылок (package prefixes) ═══
+    generated_code, f = _phase_fix_references(
         generated_code, type_registry, func_registry
     )
-    fixes_applied.extend(phase6_fixes)
+    fixes_applied.extend(f)
 
-    # ═══════════════════════════════════════════
-    # PHASE 7: Генерация недостающих заглушек
-    # ═══════════════════════════════════════════
-    generated_code, phase7_fixes = _phase_generate_stubs(
+    type_registry = _build_type_registry(generated_code)
+    func_registry = _build_func_registry(generated_code)
+    logger.info(
+        f"Post-dedup registry: {len(type_registry)} types, "
+        f"{len(func_registry)} functions"
+    )
+
+    # ═══ PHASE 7: Генерация недостающих заглушек ═══
+    generated_code, f = _phase_generate_stubs(
         generated_code, type_registry, func_registry
     )
-    fixes_applied.extend(phase7_fixes)
+    fixes_applied.extend(f)
 
-    # ═══════════════════════════════════════════
-    # PHASE 8: Пересборка import блоков
-    # ═══════════════════════════════════════════
-    generated_code, phase8_fixes = _phase_rebuild_imports(
-        generated_code
+    # ═══ PHASE 8: Пересборка import блоков ═══
+    generated_code, f = _phase_rebuild_imports(generated_code)
+    fixes_applied.extend(f)
+
+    # ═══ PHASE 9: Финальная очистка ═══
+    generated_code, f = _phase_final_cleanup(generated_code)
+    fixes_applied.extend(f)
+
+    # ══════════════════════════════════════════════
+    # PHASE 10: Финальная проверка на дубли
+    # (safety net после генерации stubs)
+    # ══════════════════════════════════════════════
+    final_type_reg = _build_type_registry(generated_code)
+    final_func_reg = _build_func_registry(generated_code)
+
+    # Если stubs создали дубли — удаляем из stubs
+    generated_code, f = _phase_final_dedup_stubs(
+        generated_code, final_type_reg, final_func_reg
     )
-    fixes_applied.extend(phase8_fixes)
+    fixes_applied.extend(f)
 
-    # ═══════════════════════════════════════════
-    # PHASE 9: Финальная очистка
-    # ═══════════════════════════════════════════
-    generated_code, phase9_fixes = _phase_final_cleanup(
-        generated_code
-    )
-    fixes_applied.extend(phase9_fixes)
-
-    # Обновляем реестр после всех фиксов
     final_types = _build_type_registry(generated_code)
     final_funcs = _build_func_registry(generated_code)
 
@@ -201,6 +199,46 @@ async def node_consolidate(state: MigrationGraphState) -> dict:
         "current_node": "consolidate",
     }
 
+
+def _phase_ensure_base_types(
+    code: Dict[str, str],
+) -> Tuple[Dict[str, str], List[str]]:
+    """
+    Гарантирует что часто используемые типы-алиасы определены.
+    """
+    fixes = []
+    all_content = _get_all_go_content(code)
+
+    base_types = {
+        "JsonNode": "type JsonNode = map[string]interface{}",
+        "JsonParseResult": "type JsonParseResult = map[string]interface{}",
+        "T": "type T = interface{}",
+    }
+
+    missing = []
+    for type_name, type_def in base_types.items():
+        # Используется в коде?
+        if not re.search(rf'\b{type_name}\b', all_content):
+            continue
+        # Уже определён?
+        if re.search(rf'type\s+{type_name}\b', all_content):
+            continue
+        missing.append(type_def)
+
+    if missing:
+        types_file = code.get(
+            "types_common.go", "package main\n\n"
+        )
+        types_file += (
+            "\n// Base type aliases\n"
+            + "\n".join(missing) + "\n"
+        )
+        code["types_common.go"] = types_file
+        fixes.append(
+            f"[consolidate] Added {len(missing)} base type aliases"
+        )
+
+    return code, fixes
 
 # ═══════════════════════════════════════════════════
 # PHASE 1: Унификация package
@@ -467,6 +505,104 @@ def _phase_remove_duplicate_types(
     return code, fixes
 
 
+def _phase_dedup_methods_in_file(
+    code: Dict[str, str],
+) -> Tuple[Dict[str, str], List[str]]:
+    """
+    Удаляет дублирующиеся методы ВНУТРИ одного файла.
+    LLM иногда генерирует один и тот же метод дважды.
+    """
+    fixes = []
+
+    for fname, content in code.items():
+        if not fname.endswith(".go"):
+            continue
+
+        # Находим все методы: func (r *Type) Name(
+        # и standalone: func Name(
+        methods_found: Dict[str, List[int]] = {}
+
+        for match in re.finditer(
+            r'^(\s*func\s+(?:\([^)]+\)\s+)?(\w+)\s*\()',
+            content,
+            re.MULTILINE,
+        ):
+            signature_key = match.group(2)  # имя метода
+            # Для методов добавляем receiver
+            full_line = match.group(1).strip()
+            receiver_match = re.match(
+                r'func\s+\((\w+)\s+\*?(\w+)\)\s+(\w+)',
+                full_line,
+            )
+            if receiver_match:
+                # method: Type.MethodName
+                key = f"{receiver_match.group(2)}.{receiver_match.group(3)}"
+            else:
+                key = signature_key
+
+            if key not in methods_found:
+                methods_found[key] = []
+            methods_found[key].append(match.start())
+
+        # Удаляем дубли — оставляем первое вхождение
+        duplicates_removed = 0
+        for key, positions in methods_found.items():
+            if len(positions) <= 1:
+                continue
+
+            # Удаляем все кроме первого (с конца чтобы не сбить позиции)
+            for pos in reversed(positions[1:]):
+                # Находим начало функции (включая комментарии)
+                func_start = pos
+                # Откатываемся на комментарии
+                lines_before = content[:pos].split('\n')
+                while (
+                    lines_before
+                    and lines_before[-1].strip().startswith('//')
+                ):
+                    func_start -= len(lines_before[-1]) + 1
+                    lines_before.pop()
+
+                if func_start < 0:
+                    func_start = pos
+
+                # Ищем конец функции
+                brace_pos = content.find('{', pos)
+                if brace_pos == -1:
+                    continue
+
+                depth = 0
+                i = brace_pos
+                while i < len(content):
+                    if content[i] == '{':
+                        depth += 1
+                    elif content[i] == '}':
+                        depth -= 1
+                        if depth == 0:
+                            end = i + 1
+                            while (
+                                end < len(content)
+                                and content[end] in ('\n', '\r')
+                            ):
+                                end += 1
+                            content = (
+                                content[:func_start]
+                                + content[end:]
+                            )
+                            duplicates_removed += 1
+                            break
+                    i += 1
+
+        if duplicates_removed:
+            code[fname] = content
+            fixes.append(
+                f"[consolidate] {fname}: removed "
+                f"{duplicates_removed} duplicate methods"
+            )
+
+    return code, fixes
+
+
 def _remove_type_definition(content: str, type_name: str) -> str:
     """
     Удаляет определение типа из файла.
@@ -725,27 +861,31 @@ def _phase_generate_stubs(
     """
     Находит типы и функции, которые используются,
     но не определены — и генерирует заглушки.
+
+    ВАЖНО: НЕ генерирует заглушки для уже определённых символов.
     """
     fixes = []
-    all_content = "\n".join(code.values())
+    all_content = _get_all_go_content(code)
+
+    # ── Собираем ВСЕ определённые символы ──
+    defined_types = set(type_registry.keys())
+    defined_funcs = set()
+    for func_key in func_registry:
+        if func_key.startswith("method:"):
+            defined_funcs.add(func_key[7:])  # убираем "method:"
+        else:
+            defined_funcs.add(func_key)
 
     # ── Собираем все использованные типы ──
-    # Паттерн: слово с заглавной буквы, используемое как тип
     used_types: Set[str] = set()
 
-    # В объявлениях полей: FieldName TypeName
+    # В struct fields: FieldName TypeName `json:"..."`
     for match in re.finditer(
-        r'\b(\w+)\s+([A-Z]\w+)\s+`', all_content
+        r'\b\w+\s+\*?(\[?\]?[A-Z]\w+)\s+`', all_content
     ):
-        used_types.add(match.group(2))
-
-    # В сигнатурах функций
-    for match in re.finditer(
-        r'(?:func|var|:=|=)\s*.*?([A-Z]\w+)', all_content
-    ):
-        candidate = match.group(1)
-        if len(candidate) > 2:
-            used_types.add(candidate)
+        clean = match.group(1).lstrip("[]*")
+        if clean:
+            used_types.add(clean)
 
     # В []Type, *Type, map[...]Type
     for match in re.finditer(
@@ -753,58 +893,76 @@ def _phase_generate_stubs(
     ):
         used_types.add(match.group(1))
 
-    # Типы, которые определены
-    defined_types = set(type_registry.keys())
+    # В присвоениях и возвратах: &TypeName{}, TypeName{}
+    for match in re.finditer(
+        r'[&]?([A-Z]\w+)\s*\{', all_content
+    ):
+        used_types.add(match.group(1))
 
-    # Go built-in типы, которые не нужно определять
-    BUILTIN_TYPES = {
+    # В сигнатурах функций: func(...) *TypeName
+    for match in re.finditer(
+        r'\)\s+\*?([A-Z]\w+)', all_content
+    ):
+        used_types.add(match.group(1))
+
+    # Go built-in и framework типы — НЕ нужно генерировать
+    SKIP_TYPES = {
+        # Go builtins
         "Context", "Time", "Duration", "Reader", "Writer",
-        "Error", "Engine", "HandlerFunc", "RouterGroup",
-        "H",  # gin.H
-        "DB",  # gorm.DB
-        "Model",  # gorm.Model
-        "Logger",
-        "Server",
+        "Error", "Mutex", "WaitGroup", "Once",
+        # Gin
+        "Engine", "HandlerFunc", "RouterGroup", "H",
+        # GORM
+        "DB", "Model",
+        # Стандартные
+        "Logger", "Server", "Request", "Response",
+        "Header", "Cookie", "URL", "File",
+        "Buffer", "Builder",
+        # Наши автогенерированные
+        "JsonNode",
     }
 
-    missing_types = (
-        used_types - defined_types - BUILTIN_TYPES
-    )
+    missing_types = used_types - defined_types - SKIP_TYPES
 
-    # Фильтруем: только те, что реально используются как типы
-    # (не просто слова в комментариях)
+    # Фильтруем: только реально используемые как типы
     real_missing: List[str] = []
     for t in sorted(missing_types):
-        # Проверяем, что это реально используется как тип
-        # (после : или в struct field или в []Type)
+        # Проверяем контекст использования
         type_usage = re.search(
             rf'(?:'
-            rf'\b\w+\s+\*?{re.escape(t)}\b'  # field Type
-            rf'|\[\]{re.escape(t)}\b'           # []Type
-            rf'|\*{re.escape(t)}\b'             # *Type
-            rf'|map\[.*?\]{re.escape(t)}\b'     # map[K]Type
-            rf'|{re.escape(t)}\{{'              # Type{
-            rf'|&{re.escape(t)}\{{'             # &Type{
+            rf'\b\w+\s+\*?{re.escape(t)}\b'       # field Type
+            rf'|\[\]{re.escape(t)}\b'               # []Type
+            rf'|\*{re.escape(t)}\b'                 # *Type
+            rf'|map\[.*?\]\*?{re.escape(t)}\b'     # map[K]Type
+            rf'|{re.escape(t)}\{{'                  # Type{
+            rf'|&{re.escape(t)}\{{'                 # &Type{
+            rf'|\)\s+\*?{re.escape(t)}\b'          # ) Type (return)
             rf')',
             all_content,
         )
         if type_usage:
             real_missing.append(t)
 
+    # ── Генерируем заглушки для типов ──
+    stubs_lines: List[str] = []
+
     if real_missing:
-        stubs = ["package main\n"]
-        stubs.append(
-            "// Auto-generated stubs for missing types.\n"
+        stubs_lines.append("package main\n")
+        stubs_lines.append(
+            "// Auto-generated stubs for missing types."
+        )
+        stubs_lines.append(
             "// TODO: Replace with real implementations.\n"
         )
 
         for type_name in real_missing:
-            stubs.append(
-                f"// TODO: Define {type_name} properly\n"
+            stubs_lines.append(
+                f"// TODO: Define {type_name} properly"
+            )
+            stubs_lines.append(
                 f"type {type_name} struct{{}}\n"
             )
 
-        code["stubs_generated.go"] = "\n".join(stubs)
         fixes.append(
             f"[consolidate] Generated stubs for "
             f"{len(real_missing)} missing types: "
@@ -812,38 +970,107 @@ def _phase_generate_stubs(
         )
 
     # ── Проверяем вызовы New*() конструкторов ──
-    new_calls = re.findall(r'\bNew(\w+)\s*\(', all_content)
-    defined_funcs = set(func_registry.keys())
+    new_calls = set(re.findall(r'\bNew(\w+)\s*\(', all_content))
 
     missing_constructors = []
-    for name in set(new_calls):
+    for name in sorted(new_calls):
         full_name = f"New{name}"
-        if full_name not in defined_funcs:
-            # Проверяем, что тип существует
-            if name in defined_types or name in real_missing:
-                missing_constructors.append((full_name, name))
+
+        # ⚠️ КЛЮЧЕВАЯ ПРОВЕРКА: не генерируем,
+        # если функция УЖЕ ОПРЕДЕЛЕНА
+        if full_name in defined_funcs:
+            continue
+
+        # Проверяем, что тип существует
+        if (
+            name in defined_types
+            or name in real_missing
+        ):
+            missing_constructors.append((full_name, name))
 
     if missing_constructors:
-        stub_file = code.get("stubs_generated.go", "package main\n\n")
-        stub_file += "\n// Auto-generated constructor stubs\n\n"
+        if not stubs_lines:
+            stubs_lines.append("package main\n")
+
+        stubs_lines.append(
+            "\n// Auto-generated constructor stubs\n"
+        )
 
         for func_name, type_name in missing_constructors:
-            stub_file += (
-                f"// TODO: Implement {func_name} properly\n"
-                f"func {func_name}() *{type_name} {{\n"
-                f"\treturn &{type_name}{{}}\n"
-                f"}}\n\n"
+            stubs_lines.append(
+                f"// TODO: Implement {func_name} properly"
             )
+            stubs_lines.append(
+                f"func {func_name}() *{type_name} {{"
+            )
+            stubs_lines.append(
+                f"\treturn &{type_name}{{}}"
+            )
+            stubs_lines.append("}\n")
 
-        code["stubs_generated.go"] = stub_file
         fixes.append(
-            f"[consolidate] Generated {len(missing_constructors)} "
-            f"constructor stubs: "
+            f"[consolidate] Generated "
+            f"{len(missing_constructors)} constructor stubs: "
             f"{', '.join(f[0] for f in missing_constructors[:10])}"
         )
 
-    return code, fixes
+    # ── Проверяем использование функций-хелперов ──
+    # Например: ErrorHandlerMiddleware, CORSMiddleware
+    # НЕ генерируем если уже определены!
+    helper_patterns = {
+        "ErrorHandlerMiddleware": (
+            "func ErrorHandlerMiddleware() gin.HandlerFunc {\n"
+            "\treturn func(c *gin.Context) {\n"
+            "\t\tdefer func() {\n"
+            "\t\t\tif err := recover(); err != nil {\n"
+            '\t\t\t\tc.JSON(500, gin.H{"error": '
+            '"Internal server error"})\n'
+            "\t\t\t\tc.Abort()\n"
+            "\t\t\t}\n"
+            "\t\t}()\n"
+            "\t\tc.Next()\n"
+            "\t}\n"
+            "}"
+        ),
+        "CORSMiddleware": (
+            "func CORSMiddleware() gin.HandlerFunc {\n"
+            "\treturn func(c *gin.Context) {\n"
+            '\t\tc.Header("Access-Control-Allow-Origin", "*")\n'
+            "\t\tc.Next()\n"
+            "\t}\n"
+            "}"
+        ),
+    }
 
+    for helper_name, helper_code in helper_patterns.items():
+        # Используется в коде?
+        if helper_name not in all_content:
+            continue
+        # Уже определена?
+        if helper_name in defined_funcs:
+            continue
+
+        if not stubs_lines:
+            stubs_lines.append("package main\n")
+
+        stubs_lines.append(f"\n{helper_code}\n")
+        fixes.append(
+            f"[consolidate] Generated missing helper: "
+            f"{helper_name}"
+        )
+
+    # ── Сохраняем stubs файл ──
+    if stubs_lines:
+        code["stubs_generated.go"] = "\n".join(stubs_lines)
+    elif "stubs_generated.go" in code:
+        # Если стабы не нужны — удаляем файл
+        del code["stubs_generated.go"]
+        fixes.append(
+            "[consolidate] Removed stubs_generated.go "
+            "(no stubs needed)"
+        )
+
+    return code, fixes
 
 # ═══════════════════════════════════════════════════
 # PHASE 8: Пересборка import блоков
@@ -1085,7 +1312,6 @@ def _phase_final_cleanup(
         fixed_lines = []
         for line in lines:
             stripped = line.rstrip()
-            # Если строка содержит ровно 1 бэктик и заканчивается на "
             if stripped.count('`') == 1 and stripped.endswith('"'):
                 line = stripped + '`'
             fixed_lines.append(line)
@@ -1122,7 +1348,7 @@ def _phase_final_cleanup(
         # 7. *error → error
         content = re.sub(r'\*error\b', 'error', content)
 
-        # 8. uuid.UUID → string (убираем зависимость)
+        # 8. uuid.UUID → string
         content = re.sub(r'\buuid\.UUID\b', 'string', content)
         content = re.sub(
             r'\buuid\.New\(\)',
@@ -1130,7 +1356,88 @@ def _phase_final_cleanup(
             content,
         )
 
-        # 9. Баланс скобок — убираем лишние } на top level
+        # 8.5. Фикс "missing return" — функции с // implementation
+        lines = content.split('\n')
+        fixed_lines = []
+        for i, line in enumerate(lines):
+            s = line.strip()
+            if s in ('// implementation', '// TODO: implement'):
+                func_sig = ""
+                for j in range(i - 1, max(i - 5, -1), -1):
+                    if lines[j].strip().startswith('func '):
+                        func_sig = lines[j].strip()
+                        break
+                return_stub = _generate_return_stub(func_sig)
+                if return_stub:
+                    fixed_lines.append(line)
+                    fixed_lines.append(f'\t{return_stub}')
+                    continue
+            fixed_lines.append(line)
+        content = '\n'.join(fixed_lines)
+
+        lines = content.split('\n')
+        fixed_lines = []
+        comma_fixes = 0
+        in_composite = 0
+
+        for i, line in enumerate(lines):
+            stripped = line.rstrip()
+            s = stripped.strip()
+
+            # Отслеживаем вход в composite literal
+            if '{' in s:
+                control_keywords = (
+                    'func ', 'if ', 'for ', 'switch ',
+                    'select ', 'defer ', 'go ', 'else ',
+                    'return ', 'case ',
+                )
+                is_control = any(
+                    s.startswith(kw) or s.lstrip().startswith(kw)
+                    for kw in control_keywords
+                )
+                if not is_control:
+                    in_composite += s.count('{')
+
+            if '}' in s and in_composite > 0:
+                in_composite -= s.count('}')
+                if in_composite < 0:
+                    in_composite = 0
+
+            # Запятая ТОЛЬКО внутри composite literal
+            if (
+                in_composite > 0
+                and i + 1 < len(lines)
+                and stripped
+                and not stripped.endswith(',')
+                and not stripped.endswith('{')
+                and not stripped.endswith('(')
+                and not stripped.endswith('/')
+                and not s.startswith('//')
+            ):
+                next_s = lines[i + 1].strip()
+                if (
+                    re.match(r'^[A-Z]\w*\s*:', next_s)
+                    or next_s in ('}', '},', '},)')
+                ):
+                    curr = s
+                    if (
+                        re.match(r'^[A-Z]\w*\s*:.*\S$', curr)
+                        or (curr.endswith(')') and ':' in curr)
+                        or (curr.endswith('"') and ':' in curr)
+                    ):
+                        stripped += ','
+                        comma_fixes += 1
+
+            fixed_lines.append(stripped)
+
+        content = '\n'.join(fixed_lines)
+        if comma_fixes:
+            fixes.append(
+                f"[consolidate] {fname}: added {comma_fixes} "
+                f"missing commas in composite literals"
+            )
+
+        # 10. Баланс скобок — убираем лишние } на top level
         lines = content.split('\n')
         depth = 0
         balanced_lines = []
@@ -1140,7 +1447,7 @@ def _phase_final_cleanup(
             closes = s.count('}')
 
             if s == '}' and depth == 0:
-                continue  # лишняя закрывающая скобка
+                continue
 
             depth += opens - closes
             if depth < 0:
@@ -1159,6 +1466,75 @@ def _phase_final_cleanup(
     return code, fixes
 
 
+def _phase_final_dedup_stubs(
+    code: Dict[str, str],
+    type_registry: Dict[str, List[str]],
+    func_registry: Dict[str, List[str]],
+) -> Tuple[Dict[str, str], List[str]]:
+    """
+    Safety net: если stubs_generated.go содержит символы,
+    которые определены в других файлах — удаляем из stubs.
+    """
+    fixes = []
+    stubs_file = "stubs_generated.go"
+
+    if stubs_file not in code:
+        return code, fixes
+
+    content = code[stubs_file]
+    original = content
+
+    # Проверяем каждый тип в stubs
+    for type_name, files in type_registry.items():
+        if stubs_file not in files:
+            continue
+        # Если тип определён ещё где-то кроме stubs — удаляем из stubs
+        other_files = [f for f in files if f != stubs_file]
+        if other_files:
+            content = _remove_type_definition(content, type_name)
+            fixes.append(
+                f"[consolidate] stubs: removed duplicate type "
+                f"{type_name} (exists in {other_files[0]})"
+            )
+
+    # Проверяем каждую функцию в stubs
+    for func_key, files in func_registry.items():
+        if stubs_file not in files:
+            continue
+        func_name = (
+            func_key[7:] if func_key.startswith("method:")
+            else func_key
+        )
+        other_files = [f for f in files if f != stubs_file]
+        if other_files:
+            content = _remove_func_definition(content, func_name)
+            fixes.append(
+                f"[consolidate] stubs: removed duplicate func "
+                f"{func_name} (exists in {other_files[0]})"
+            )
+
+    # Если stubs стал пустым — удаляем файл
+    remaining = content.strip()
+    is_empty = (
+        not remaining
+        or re.fullmatch(
+            r'package\s+main\s*'
+            r'(?://[^\n]*\n?\s*)*',
+            remaining,
+        )
+    )
+
+    if is_empty:
+        del code[stubs_file]
+        fixes.append(
+            "[consolidate] Removed stubs_generated.go "
+            "(all stubs were duplicates)"
+        )
+    elif content != original:
+        code[stubs_file] = content
+
+    return code, fixes
+
 # ═══════════════════════════════════════════════════
 # Дополнительные утилиты
 # ═══════════════════════════════════════════════════
@@ -1169,3 +1545,85 @@ def _get_all_go_content(code: Dict[str, str]) -> str:
         content for fname, content in code.items()
         if fname.endswith(".go")
     )
+
+def _generate_return_stub(func_sig: str) -> str:
+    """По сигнатуре функции генерирует return statement."""
+    if not func_sig:
+        return ""
+
+    # Убираем всё до последнего ) перед {
+    # Сигнатура: func (r *T) Name(params) (RetType1, RetType2) {
+    # Нам нужно извлечь (RetType1, RetType2) или RetType
+
+    # Находим позицию открывающей {
+    brace_pos = func_sig.rfind('{')
+    if brace_pos == -1:
+        return ""
+
+    # Берём часть между последним ) параметров и {
+    before_brace = func_sig[:brace_pos].rstrip()
+
+    # Ищем return type — это то, что после последней ) от параметров
+    # Стратегия: идём с конца, ищем return type
+    # Если заканчивается на ) — это множественный return (Type1, Type2)
+    # Иначе — одиночный return type или ничего
+
+    if before_brace.endswith(')'):
+        # Может быть: ...params) (int, error)
+        # или: ...params)
+        # Нужно найти парную ( для последней )
+        depth = 0
+        i = len(before_brace) - 1
+        while i >= 0:
+            if before_brace[i] == ')':
+                depth += 1
+            elif before_brace[i] == '(':
+                depth -= 1
+                if depth == 0:
+                    ret_part = before_brace[i:].strip()
+                    # Проверяем: это return type или параметры?
+                    # Если перед ( стоит ) — это return type
+                    before_paren = before_brace[:i].rstrip()
+                    if before_paren.endswith(')'):
+                        # Это return type: (int, error)
+                        inner = ret_part[1:-1]  # убираем ( )
+                        types = [t.strip() for t in inner.split(',')]
+                        values = [_zero_value(t) for t in types]
+                        return f'return {", ".join(values)}'
+                    else:
+                        # Это параметры функции — нет return type
+                        return ""
+            i -= 1
+    else:
+        # Одиночный return type: func Foo() error {
+        # Ищем последнюю ) и берём что после неё
+        last_paren = before_brace.rfind(')')
+        if last_paren == -1:
+            return ""
+        ret = before_brace[last_paren + 1:].strip()
+        if ret:
+            return f'return {_zero_value(ret)}'
+
+    return ""
+
+
+def _zero_value(go_type: str) -> str:
+    """Возвращает zero value для Go типа."""
+    t = go_type.strip()
+    if t == 'error':
+        return 'nil'
+    if t.startswith('*') or t.startswith('[]') or t.startswith('map['):
+        return 'nil'
+    if t == 'string':
+        return '""'
+    if t == 'bool':
+        return 'false'
+    if t in ('int', 'int8', 'int16', 'int32', 'int64',
+             'uint', 'uint8', 'uint16', 'uint32', 'uint64',
+             'float32', 'float64', 'byte', 'rune'):
+        return '0'
+    if t == 'interface{}':
+        return 'nil'
+    if t and t[0].isupper():
+        return 'nil'
+    return 'nil'

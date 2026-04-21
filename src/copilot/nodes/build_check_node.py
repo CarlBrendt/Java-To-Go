@@ -1,3 +1,5 @@
+import asyncio
+import aiohttp
 import os
 import subprocess
 import logging
@@ -103,11 +105,11 @@ async def node_build_check(state: MigrationGraphState) -> dict:
 
     # ── 5. go mod download + tidy ──
     logger.info("Downloading Go dependencies...")
-    _run_command(["go", "mod", "download"], build_dir, 180, env)
-    _run_command(["go", "mod", "tidy"], build_dir, 180, env)
+    await _run_command(["go", "mod", "download"], build_dir, 180, env)
+    await _run_command(["go", "mod", "tidy"], build_dir, 180, env)
 
     # ── 6. go build ──
-    build_result = _run_command(
+    build_result = await _run_command(
         ["go", "build", "./..."], build_dir, 120, env
     )
 
@@ -119,7 +121,7 @@ async def node_build_check(state: MigrationGraphState) -> dict:
     # ── 7. go vet (если build прошёл) ──
     vet_warnings = []
     if build_passed:
-        vet_result = _run_command(
+        vet_result = await _run_command(
             ["go", "vet", "./..."], build_dir, 60, env
         )
         if vet_result["returncode"] != 0:
@@ -128,7 +130,7 @@ async def node_build_check(state: MigrationGraphState) -> dict:
     # ── 8. Проверка запуска ──
     startup_ok = False
     if build_passed:
-        startup_ok = _check_startup(build_dir, env)
+        startup_ok = await _check_startup(build_dir, env)
 
     # ── 9. Отчёт ──
     report = _generate_build_report(
@@ -773,18 +775,20 @@ def _generate_go_mod(module_name: str, all_content: str) -> str:
     )
 
 
-def _run_command(
+async def _run_command(
     cmd: List[str],
     cwd: str,
     timeout: int = 60,
     env: dict = None,
 ) -> Dict[str, any]:
-    """Запускает команду и возвращает результат."""
+    """Запускает команду асинхронно и возвращает результат."""
     try:
         run_env = env or os.environ.copy()
         run_env["GIT_TERMINAL_PROMPT"] = "0"
 
-        result = subprocess.run(
+        # Асинхронный запуск subprocess
+        result = await asyncio.to_thread(
+            subprocess.run,
             cmd,
             capture_output=True,
             text=True,
@@ -817,10 +821,10 @@ def _run_command(
         }
 
 
-def _check_startup(build_dir: str, env: dict = None) -> bool:
-    """Пытается запустить сервис на 3 секунды."""
-    import time
-
+async def _check_startup(build_dir: str, env: dict = None) -> bool:
+    """Асинхронно пытается запустить сервис."""
+    import asyncio
+    
     logger.info("Checking startup (3 sec timeout)...")
 
     try:
@@ -828,44 +832,54 @@ def _check_startup(build_dir: str, env: dict = None) -> bool:
         run_env["PORT"] = "18080"
         run_env["GIT_TERMINAL_PROMPT"] = "0"
 
-        proc = subprocess.Popen(
-            ["go", "run", "."],
+        # Асинхронный запуск процесса
+        proc = await asyncio.create_subprocess_exec(
+            "go", "run", ".",
             cwd=build_dir,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
             env=run_env,
         )
 
-        time.sleep(3)
+        # Асинхронная задержка (не блокирует event loop!)
+        await asyncio.sleep(3)
 
-        if proc.poll() is not None:
-            _, stderr = proc.communicate(timeout=1)
+        if proc.returncode is not None:
+            stderr = await proc.stderr.read()
             stderr_text = stderr.decode("utf-8", errors="replace")
             if stderr_text:
                 logger.warning(f"Startup failed: {stderr_text[:300]}")
             return False
 
-        # Проверяем health endpoint
+        # Проверяем health endpoint (асинхронно)
         startup_ok = False
         try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get("http://localhost:18080/health", timeout=2) as resp:
+                    if resp.status == 200:
+                        startup_ok = True
+                        logger.info("✅ Health check passed")
+        except ImportError:
+            # fallback на синхронный urllib (но лучше добавить aiohttp)
             import urllib.request
-            req = urllib.request.Request(
-                "http://localhost:18080/health", method="GET"
-            )
-            with urllib.request.urlopen(req, timeout=2) as resp:
-                if resp.status == 200:
-                    startup_ok = True
-                    logger.info("✅ Health check passed")
+            try:
+                req = urllib.request.Request("http://localhost:18080/health", method="GET")
+                with urllib.request.urlopen(req, timeout=2) as resp:
+                    if resp.status == 200:
+                        startup_ok = True
+            except Exception:
+                logger.info("Health check N/A, but process is running")
+                startup_ok = True
         except Exception:
             logger.info("Health check N/A, but process is running")
             startup_ok = True
 
         proc.terminate()
         try:
-            proc.wait(timeout=3)
-        except subprocess.TimeoutExpired:
+            await asyncio.wait_for(proc.wait(), timeout=3)
+        except asyncio.TimeoutError:
             proc.kill()
-            proc.wait(timeout=3)
+            await proc.wait()
 
         return startup_ok
 

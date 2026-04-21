@@ -35,6 +35,58 @@ class MinioService:
                 logger.error(f"Error creating bucket {bucket_name}: {e}")
                 raise e
 
+    async def list_objects(
+        self,
+        bucket_name: str,
+        prefix: str,
+        *,
+        recursive: bool = True,
+    ) -> list[str]:
+        """Список имён объектов в бакете по префиксу (для статуса миграции и т.п.)."""
+
+        loop = asyncio.get_running_loop()
+
+        def _sync_list() -> list[str]:
+            try:
+                return [
+                    obj.object_name
+                    for obj in self.client.list_objects(
+                        bucket_name,
+                        prefix=prefix,
+                        recursive=recursive,
+                    )
+                ]
+            except S3Error as e:
+                logger.error(f"list_objects bucket={bucket_name} prefix={prefix!r}: {e}")
+                raise
+
+        return await loop.run_in_executor(None, _sync_list)
+
+    async def get_object_bytes_if_exists(
+        self,
+        bucket_name: str,
+        object_name: str,
+    ) -> bytes | None:
+        """Читает объект целиком или None, если ключа нет."""
+
+        loop = asyncio.get_running_loop()
+
+        def _sync() -> bytes | None:
+            try:
+                resp = self.client.get_object(bucket_name, object_name)
+                try:
+                    return resp.read()
+                finally:
+                    resp.close()
+                    resp.release_conn()
+            except S3Error as e:
+                code = getattr(e, "code", None)
+                if code in ("NoSuchKey", "NoSuchBucket"):
+                    return None
+                logger.error(f"get_object {object_name!r}: {e}")
+                raise
+
+        return await loop.run_in_executor(None, _sync)
 
     async def upload_file(self, source_file: str, bucket_name: str, user_id: str, original_filename: str = None):
         """

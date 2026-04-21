@@ -240,6 +240,16 @@ This section captures the current repository state so the task can be continued 
 
 The end-to-end pipeline is wired, but the first successful validation run is not complete yet.
 
+The validation work has been cleaned up and saved in local commit:
+
+- `9339fc5 Add workflow engine validation flow`
+
+Local verification after cleanup:
+
+- `validation/workflow-engine-parity-tests`: `mvn -Dmaven.repo.local=.m2 test` passed.
+- `validation/validation-orchestrator`: `mvn -Dmaven.repo.local=.m2 test` passed.
+- `git diff --cached --check` passed before the local commit.
+
 The latest observed validation run failed before parity tests actually executed:
 
 - status: `failed`;
@@ -249,20 +259,46 @@ The latest observed validation run failed before parity tests actually executed:
 
 This means the failure happened while the orchestrator was waiting for or communicating with the main backend during Go generation. It did not yet reach the real parity test execution stage.
 
+Important update: this timeout may already be fixed by newer main backend/frontend changes in `dev`. The next step is to merge `dev` first, not to blindly rewrite the orchestrator timeout logic.
+
+Current blocker for merge:
+
+- local git cannot fetch `origin/dev` because GitHub credentials are not available in this environment;
+- `git fetch origin dev` currently fails with `fatal: could not read Username for 'https://github.com': Device not configured`.
+
+Manual command needed before continuing:
+
+```bash
+git fetch origin dev:refs/remotes/origin/dev
+```
+
 ### Known Gaps Before Acceptance
 
-- The orchestrator's polling for generated Go artifacts must tolerate individual HTTP timeouts and continue polling until the overall migration timeout is reached.
-- ZIP extraction in the migration flow should ignore macOS metadata such as `__MACOSX` and `._*`, because those entries can be misdetected as Java projects.
+- Merge the latest `dev` changes for the main backend and frontend into `feature/workflow-engine-parity-tests`.
+- Resolve conflicts carefully, especially in:
+  - `docker-compose.yml`;
+  - `frontend/src/components/MigrationUploadSection.jsx`;
+  - `frontend/src/App.scss`;
+  - `main.py`;
+  - `src/api/v1/schemas.py`;
+  - `src/settings/config.py`;
+  - `pyproject.toml`.
+- Re-check whether the orchestrator still needs custom polling timeout handling after `dev` is merged.
+- ZIP extraction in the migration flow should ignore macOS metadata such as `__MACOSX` and `._*`, if this is not already fixed in `dev`.
 - The parity runner should produce structured JSON reports; currently the orchestrator still derives the summary from Maven/JUnit console output.
 - The first complete end-to-end run must still be verified with `tests_total > 0` and a real `parity_percent`.
 - If generated Go code does not build or start, the validation result should still return a clear frontend-friendly failure summary.
 
 ### Next Suggested Work
 
-1. Fix orchestrator polling so one slow backend response does not crash the whole validation run.
-2. Filter `__MACOSX` and `._*` entries during ZIP extraction.
-3. Rebuild and rerun the full Docker Compose stack.
-4. Start validation from the frontend and confirm that the run reaches either:
+1. Fetch `origin/dev` with working GitHub credentials.
+2. Merge `origin/dev` into `feature/workflow-engine-parity-tests`.
+3. Resolve frontend/backend/docker-compose conflicts without dropping the validation orchestrator wiring.
+4. Re-run Java checks:
+   - `cd validation/workflow-engine-parity-tests && mvn -Dmaven.repo.local=.m2 test`
+   - `cd validation/validation-orchestrator && mvn -Dmaven.repo.local=.m2 test`
+5. Rebuild and rerun the full Docker Compose stack.
+6. Start validation from the frontend and confirm that the run reaches either:
    - Go build/runtime failure with a clear summary; or
    - parity test execution with non-zero test counts.
-5. Replace Maven log parsing with structured JSON report aggregation.
+7. Replace Maven log parsing with structured JSON report aggregation.

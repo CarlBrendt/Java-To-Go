@@ -1,0 +1,49 @@
+@startuml
+start
+    repeat
+        /'await_for_name'/:null;
+        /'Flow_0'/if (null) then
+            break;
+        else
+            /'say_hello'/:null;
+        endif
+    repeat while (true)
+    /'exit'/:null;
+stop
+@enduml
+/'
+{
+	"activities": {
+		"await_for_name": {
+			"type": "workflow_call",
+			"workflowCall": {
+				"workflowDef": {
+					"type": "await_for_message",
+					"details": {
+						"awaitForMessageConfig": {
+							"messageName": "name_received"
+						}
+					}
+				}
+			}
+		},
+		"Flow_0": {
+			"condition": "spel{#name=='exit'}"
+		},
+		"say_hello": {
+			"type": "workflow_call",
+			"workflowCall": {
+				"args": {
+					"var": "spel{'hello'+#name+'!'}"
+				},
+				"workflowRef": {
+					"name": "empty"
+				}
+			}
+		},
+		"exit": {
+			"type": "inject"
+		}
+	}
+}
+'/

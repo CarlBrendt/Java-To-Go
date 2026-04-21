@@ -1,0 +1,26 @@
+@startuml
+start
+    /'call_rest_service'/:null;
+    /'exit'/:null;
+stop
+@enduml
+/'
+{
+	"activities": {
+		"call_rest_service": {
+			"type": "workflow_call",
+			"workflowCall": {
+				"workflowDef": 	{ 
+					"type": "rest_call",
+					"details":{
+					"restCallConfig": {}
+				}
+			}
+		  }
+		},
+		"exit": {
+			"type": "inject"
+		}
+	}
+}
+'/

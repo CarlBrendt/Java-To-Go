@@ -1,0 +1,37 @@
+@startuml
+start
+    repeat
+        /'if_0'/if (завершить процесс?) then (да)
+            break;
+        else (нет)
+            /'if_1'/if (согласованно?) then (да)
+                /'call_task_service'/:получить задание;
+            else (нет)
+            endif
+        endif
+    repeat while (true)
+stop
+@enduml
+/'
+{
+	"activities": {
+		"if_0": {
+			"condition": "spel{'EXIT'.equals(#result.get(0).get('type'))}"
+		},
+		"if_1": {
+			"condition": "spel{'DRINK_VINE'.equals(#result.get(0).get('type'))}"
+		},
+		"call_task_service": {
+			"type": "workflow_call",
+			"workflowCall": { 
+				"workflowDef": { 
+					"type": "rest_call",
+					"details":{
+						"restCallConfig": {}
+					}
+				}
+			}
+		}
+	}
+}
+'/

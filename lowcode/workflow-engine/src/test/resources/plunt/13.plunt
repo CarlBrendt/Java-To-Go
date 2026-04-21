@@ -1,0 +1,48 @@
+@startuml
+start
+    /'e1'/:e1;
+    /'e2'/:e2;
+    /'if_1'/if (согласованно?) then (да)
+        /'e7'/:e7;
+        /'e8'/:e8;
+    else (нет)
+        /'e9'/:e9;
+        /'e10'/:e10;
+    endif
+    /'e15'/:e15;
+    /'e16'/:e16;
+stop
+@enduml
+/'
+{
+  "activities" : {
+    "e1" : {
+      "type" : "workflow_call"
+    },
+    "e2" : {
+      "type" : "workflow_call"
+    },
+    "if_1" : {
+      "condition" : "spel{'DRINK_VINE'.equals(#result.get(0).get('type'))}"
+    },
+    "e7" : {
+      "type" : "workflow_call"
+    },
+    "e8" : {
+      "type" : "workflow_call"
+    },
+    "e9" : {
+      "type" : "workflow_call"
+    },
+    "e10" : {
+      "type" : "workflow_call"
+    },
+    "e15" : {
+      "type" : "workflow_call"
+    },
+    "e16" : {
+      "type" : "workflow_call"
+    }
+  }
+}
+'/

@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+
+    <changeSet id="init_starters" author="beevood">
+        <createTable tableName="starter">
+            <column name="id" type="uuid">
+                <constraints nullable="false" unique="true" primaryKey="true"/>
+            </column>
+            <column name="create_time" type="datetime"/>
+            <column name="change_time" type="datetime"/>
+            <column name="start_date_time" type="datetime"/>
+            <column name="end_date_time" type="datetime"/>
+            <column name="description" type="varchar(255)"/>
+            <column name="type" type="varchar(255)"/>
+            <column name="name" type="varchar(255)"/>
+            <column name="tenant_id" type="varchar(255)"/>
+            <column name="actual_status" type="varchar(255)"/>
+            <column name="desired_status" type="varchar(255)"/>
+            <column name="start_workflow_id" type="uuid"/>
+            <column name="kafka_details" type="bytea"/>
+            <column name="rabbitmq_details" type="bytea"/>
+            <column name="mail_details" type="bytea"/>
+            <column name="scheduler_details" type="bytea"/>
+            <column name="sap_details" type="bytea"/>
+        </createTable>
+
+        <addUniqueConstraint tableName="starter" columnNames="name, tenant_id, type"/>
+
+        <addForeignKeyConstraint baseColumnNames="start_workflow_id"
+                                 baseTableName="starter"
+                                 constraintName="fk_starter_workflow_definition_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="definition"/>
+
+        <createIndex indexName="ix_starter_workflow_id" tableName="starter">
+            <column name="start_workflow_id"/>
+        </createIndex>
+
+        <createTable tableName="starter_worker">
+            <column name="id" type="uuid">
+                <constraints nullable="false" unique="true" primaryKey="true"/>
+            </column>
+            <column name="create_time" type="datetime"/>
+            <column name="change_time" type="datetime"/>
+            <column name="error_message" type="varchar(255)"/>
+            <column name="error_stack_trace" type="varchar(4000)"/>
+            <column name="executor_id" type="uuid"/>
+            <column name="locked_until_time" type="datetime"/>
+            <column name="overdue_time" type="datetime"/>
+            <column name="retry_count" type="int"/>
+            <column name="status" type="varchar(255)"/>
+            <column name="version" type="bigint"/>
+            <column name="starter_id" type="uuid"/>
+        </createTable>
+
+        <addForeignKeyConstraint baseColumnNames="starter_id"
+                                 baseTableName="starter_worker"
+                                 constraintName="fk_worker_starter_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="starter"/>
+
+        <createTable tableName="starter_exclusion">
+            <column name="id" type="uuid">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="starter_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="create_time" type="datetime">
+                <constraints nullable="false"/>
+            </column>
+            <column name="details" type="bytea"/>
+        </createTable>
+
+        <addForeignKeyConstraint baseColumnNames="starter_id"
+                                 baseTableName="starter_exclusion"
+                                 constraintName="fk_starter_exclusion_starter_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="starter"/>
+
+        <createTable tableName="starter_task">
+            <column name="id" type="uuid">
+                <constraints nullable="false" unique="true" primaryKey="true"/>
+            </column>
+            <column name="start_workflow_id" type="uuid"/>
+            <column name="version" type="bigint"/>
+            <column name="create_time" type="datetime"/>
+            <column name="retry_count" type="int"/>
+            <column name="locked_until_time" type="datetime"/>
+            <column name="overdue_time" type="datetime"/>
+            <column name="type" type="varchar(255)"/>
+            <column name="state" type="varchar(255)"/>
+            <column name="sap_details" type="bytea"/>
+        </createTable>
+
+        <addForeignKeyConstraint baseColumnNames="start_workflow_id"
+                                 baseTableName="starter_task"
+                                 constraintName="fk_starter_task_start_workflow_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="definition"/>
+
+        <createIndex indexName="ix_starter_task_start_workflow_id" tableName="starter_task">
+            <column name="start_workflow_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="ibmmq_starter_details" author="beevood">
+        <addColumn tableName="starter">
+            <column name="ibmmq_details" type="bytea"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

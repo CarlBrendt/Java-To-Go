@@ -1,0 +1,188 @@
+app:
+  securityEnabled: ${SECURITY_ENABLED:true}
+  securityClientCredentialsEnabled: ${SECURITY_CLIENT_CREDENTIALS_ENABLED:true}
+  opentelemetry-trace-exporter-endpoint: http://${NODE_IP:127.0.0.1}:${TRACING_OTLP_COLLECTOR_PORT:4318}/v1/traces
+  opentelemetry-service-name: ${OPENTELEMETRY_SERVICE_NAME:IP.SharedServices.WorkflowEngine}
+  opentelemetry-service-version: ${OPENTELEMETRY_SERVICE_VERSION:0.0.1}
+  workflow-wiki-errors-url-pattern: ${WIKI_ERRORS_BASE_PATH:https://confluence.mts.ru/pages/viewpage.action?pageId=1000688910&errorCode={errorCode}}
+  workflow-execution-config:
+    default-execution-timeout-seconds: ${DEFAULT_EXECUTION_TIMEOUT_SECONDS:172800}
+    default-execution-timeout: P3D
+  vault-endpoint: ${VAULT_ENDPOINT:https://vault.mts-corp.ru}
+  vault-role-id: ${VAULT_ROLE_ID:nope}
+  vault-secret-id: ${VAULT_SECRET_ID:nope}
+  vault-app-role-path: ${VAULT_APP_ROLE_PATH:approle}
+  vault-access-token: ${VAULT_ACCESS_TOKEN}
+  vault-sercters-cache-size: ${VAULT_SERCTERS_CACHE_SIZE:500}
+  vault-sercters-expire-after-write-minutes: ${VAULT_SERCTERS_EXPIRE_AFTER_WRITE_MINUTES:20}
+  start-url: ${WORKFLOW_START_URL:}
+  instance-size-limit-bytes: ${WORKFLOW_INSTANCE_SIZE_LIMIT_BYTES:10000000}
+  max-variable-size-bytes: ${MAX_VARIABLE_SIZE_BYTES:256000}
+  auth2-client-id: ${OAUTH2_CLIENT_ID:wf-sap-dev}
+  max-workflow-thread-count: ${MAX_WORKFLOW_THREAD_COUNT:300}
+  workflow-cache-size: ${WORKFLOW_CACHE_SIZE:250}
+  max-concurrent-activity-execution-size: ${MAX_CONCURRENT_ACTIVITY_EXECUTION_SIZE:50}
+  max-concurrent-workflow-task-execution-size: ${MAX_CONCURRENT_WORKFLOW_TASK_EXECUTION_SIZE:50}
+  max-worker-activities-per-second: ${MAX_WORKER_ACTIVITIES_PER_SECOND:10}
+  max-task-queue-activities-per-second: ${MAX_TASK_QUEUE_ACTIVITIES_PER_SECOND:10}
+  sync-start-timeout-default-seconds: ${SYNC_START_TIMEOUT_DEFAULT_SECONDS:180}
+  sync-start-timeout-limit-seconds: ${SYNC_START_TIMEOUT_LIMIT_SECONDS:300}
+  context-propagation-keys: ${CONTEXT_PROPAGATION_KEYS:starter-id,workflow-ref-id,tenant-id}
+  local-proxy-enabled: ${LOCAL_PROXY_ENABLED:false}
+logbook:
+  predicate:
+    include:
+    - path: /api/**
+
+management:
+  health:
+    redis:
+      enabled: false
+  endpoints:
+    web:
+      base-path: ${MANAGEMENT_BASE_PATH:/actuator}
+      path-mapping:
+        prometheus: ${METRICS_PATH:/prometheus}
+      exposure:
+        include:
+        - health
+        - info
+        - prometheus
+server:
+  port: ${SERVER_PORT:9090}
+  error:
+    include-message: always
+    include-binding-errors: always
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      username: ${REDIS_USERNAME:}
+      password: ${REDIS_PASSWORD:}
+  ai:
+    openai:
+      base-url: ${OPENAI_BASE_URL:http://api.llmops.mts-corp.ru/}
+      api-key: ${OPENAI_API_KEY:nope}
+  cache: 
+    type: cache2k
+    cache-names:
+     - vault
+  cloud:
+    openfeign:
+      oauth2:
+        clientRegistrationId: wf-sap-dev
+        enabled: ${SECURITY_ENABLED:true}
+      client:
+        config:
+          wf-xslt-transform-client:
+            url: ${WORKFLOW_XSLT_TRANSFORM:http://workflow-xslt:8080}
+          wf-primitives-client:
+            url: ${WORKFLOW_PRIMITIVES:http://workflow-primitives:8080}
+            error-decoder: ru.mts.ip.workflow.engine.service.scripting.ScriptExecutionErrorDecoder
+          wf-database-call-client:
+            url: ${WORKFLOW_DATABASE_CALL:http://workflow-db-call:8080}
+            error-decoder: ru.mts.ip.workflow.engine.service.scripting.ScriptExecutionErrorDecoder
+          wf-sap-client:
+            url: ${WORKFLOW_SAP:http://workflow-sap:8080}
+            error-decoder: ru.mts.ip.workflow.engine.service.scripting.ScriptExecutionErrorDecoder
+          wf-rabbitmq-client:
+            url: ${WORKFLOW_RABBITMQ:http://workflow-rabbitmq:8080}
+            error-decoder: ru.mts.ip.workflow.engine.service.scripting.ScriptExecutionErrorDecoder
+          wf-kafka-client:
+            error-decoder: ru.mts.ip.workflow.engine.service.scripting.ScriptExecutionErrorDecoder
+            url: ${WORKFLOW_KAFKA:http://workflow-kafka:8080}
+          wf-s3-client:
+            url: ${WORKFLOW_S3:http://workflow-s3:8080}
+            error-decoder: ru.mts.ip.workflow.engine.service.scripting.ScriptExecutionErrorDecoder
+          db-file-storage:
+            url: ${DB_FILE_STORAGE:http://control-plane-db-file-storage:8080}
+            error-decoder: ru.mts.ip.workflow.engine.service.scripting.ScriptExecutionErrorDecoder
+          wf-executor-client:
+            url: ${WORKFLOW_EXECUTOR:http://control-plane-workflow-executor:8080}
+            error-decoder: ru.mts.ip.workflow.engine.service.scripting.ScriptExecutionErrorDecoder
+          wf-script-executor-client:
+            error-decoder: ru.mts.ip.workflow.engine.service.scripting.ScriptExecutionErrorDecoder
+            url: ${WORKFLOW_SCRIPT_EXECUTOR:http://control-plane-workflow-script-executor:8080}
+          wf-scheduler-client:
+            error-decoder: ru.mts.ip.workflow.engine.service.scripting.ScriptExecutionErrorDecoder
+            url: ${WORKFLOW_SCHEDULER:http://control-plane-workflow-scheduler:8080}
+          wf-mail-client:
+            error-decoder: ru.mts.ip.workflow.engine.service.scripting.ScriptExecutionErrorDecoder
+            url: ${WORKFLOW_MAIL:http://control-plane-workflow-mail:8080}
+          wf-odata-client:
+            error-decoder: ru.mts.ip.workflow.engine.service.scripting.ScriptExecutionErrorDecoder
+            url: ${WORKFLOW_ODATA:http://control-plane-workflow-odata:8080}
+          wf-assistant:
+            error-decoder: ru.mts.ip.workflow.engine.service.scripting.ScriptExecutionErrorDecoder
+            url: ${WORKFLOW_ASSISTANT:http://control-plane-workflow-assistant:8080}
+  security:
+    oauth2:
+      client:
+        registration:
+          wf-sap-dev:
+            authorization-grant-type: client_credentials
+            client-id: ${OAUTH2_CLIENT_ID:wf-sap-dev}
+            client-secret: ${OAUTH2_CLIENT_SECRET}
+        provider:
+          wf-sap-dev:
+            token-uri: ${OAUTH2_TOKEN_URI:https://isso-dev.mts.ru/auth/realms/mts/protocol/openid-connect/token}
+      resourceserver:
+        jwt:
+          issuer-uri: ${OAUTH2_ISSUER_URI:https://isso-dev.mts.ru/auth/realms/mts}
+  temporal:
+    workers-auto-discovery:
+      packages:
+      - ru.mts.ip.workflow.engine.esql.temporal
+    namespace: ${TEMPORAL_NAMESPACE:default}
+    connection:
+      target: ${TEMPORAL_HOST_PORT:127.0.0.1:7233}
+  datasource:
+    driverClassName: ${DB_DRIVER:org.postgresql.Driver}
+    hikari:
+      connectionTimeout: 30000
+      maxLifetime: 500000
+      idle-timeout: 120000
+    url: ${DB_JDBC_URL:jdbc:postgresql://127.0.0.1:5432/postgres}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:1}
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    show-sql: false
+    properties:
+      hibernate: 
+        '[default_schema]': ${DB_SCHEMA_NAME:wf_engine}
+        '[format_sql]': true
+        '[generate_statistics]': false
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
+    default-schema: ${DB_SCHEMA_NAME:wf_engine}
+    liquibase-schema: ${DB_SCHEMA_NAME:wf_engine}
+    parameters:
+      RABBITMQ_DB_NAME: ${RABBITMQ_DB_NAME:}
+      RABBITMQ_DB_SCHEMA: ${RABBITMQ_DB_SCHEMA:}
+      RABBITMQ_DB_PASSWORD: ${RABBITMQ_DB_PASSWORD:}
+      RABBITMQ_DB_USERNAME: ${RABBITMQ_DB_USERNAME:}
+      KAFKA_DB_USERNAME: ${KAFKA_DB_USERNAME:}
+      KAFKA_DB_SCHEMA: ${KAFKA_DB_SCHEMA:}
+      KAFKA_DB_PASSWORD: ${KAFKA_DB_PASSWORD:}
+      KAFKA_DB_NAME: ${KAFKA_DB_NAME:}
+      SAP_DB_USERNAME: ${SAP_DB_USERNAME:}
+      SAP_DB_PASSWORD: ${SAP_DB_PASSWORD:}
+      SAP_DB_SCHEMA: ${SAP_DB_SCHEMA:}
+      SAP_DB_NAME: ${SAP_DB_NAME:}
+      MAIL_DB_USERNAME: ${MAIL_DB_USERNAME:}
+      MAIL_DB_PASSWORD: ${MAIL_DB_PASSWORD:}
+      MAIL_DB_NAME: ${MAIL_DB_NAME:}
+      MAIL_DB_SCHEMA: ${MAIL_DB_SCHEMA:}
+      SCHEDULER_DB_USERNAME: ${SCHEDULER_DB_USERNAME:}
+      SCHEDULER_DB_PASSWORD: ${SCHEDULER_DB_PASSWORD:}
+      SCHEDULER_DB_NAME: ${SCHEDULER_DB_NAME:}
+      SCHEDULER_DB_SCHEMA: ${SCHEDULER_DB_SCHEMA:}
+  servlet:
+    multipart:
+      max-file-size: ${MULTIPART_MAX_FILE_SIZE:200MB}
+      max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:200MB}

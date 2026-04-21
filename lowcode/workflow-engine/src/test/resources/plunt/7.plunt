@@ -1,0 +1,38 @@
+@startuml
+start
+    repeat
+        /'inc'/:null;
+        /'Flow_0'/if (null) then
+            break;
+        else
+        endif
+    repeat while (true)
+    /'complete'/:null;
+stop
+@enduml
+/'
+{
+	"activities": {
+		"inc": {
+			"type": "inject",
+			"injectData": {
+				"i": "spel{#i+1}"
+			}
+		},
+		"Flow_0": {
+			"condition": "spel{#i==5}"
+		},
+		"complete": {
+			"type": "workflow_call",
+			"workflowCall": {
+				"args": {
+					"val": "complete"
+				},
+				"workflowRef": {
+					"name": "empty"
+				}
+			}
+		}
+	}
+}
+'/

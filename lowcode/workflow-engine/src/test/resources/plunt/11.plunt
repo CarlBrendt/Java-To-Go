@@ -1,0 +1,101 @@
+@startuml
+start
+    repeat
+    	/'call_task_service'/:получить задание;
+        /'if_0'/if (завершить процесс?) then (да)
+            break;
+        else (нет)
+        	/'approval_task'/:согласовать выполнение;
+            /'if_1'/if (согласованно?) then (да)
+                /'execute'/:выполнить задачу;
+            else (нет)
+            	/'go_home'/:go_home;
+            endif    
+        endif
+    repeat while (true)
+    /'go_home1'/:получить задание;
+stop
+@enduml
+/'
+{
+    "tenantId": "default",
+    "langVersion": 1,
+    "name": "test_1",
+    "description": "test_1",
+    "type": "complex",
+    "activities": {
+        "call_task_service": {
+            "type": "function",
+            "actions": [
+                {
+                    "workflowRef": {
+                        "name": "rest_call",
+                        "arguments": {
+                            "templateName": "task_service",
+							"body" : {}
+                        }
+                    }
+                }
+            ]
+        }, 
+        "if_0": {
+            "condition": "SpEL{'EXIT'.equals(#result.get(0).get('type'))}"
+        }, 
+        "if_1": {
+            "condition": "SpEL{'DRINK_VINE'.equals(#result.get(0).get('type'))}"
+        },
+        "execute": {
+            "type": "function",
+            "actions": [
+                {
+                    "workflowRef": {
+                        "name": "println",
+                        "arguments": {
+                            "var": "drink bear"
+                        }
+                    }
+                }
+            ]
+        },
+        "approval_task": {
+            "type": "function",
+            "actions": [
+                {
+                    "workflowRef": {
+                        "name": "println",
+                        "arguments": {
+                            "var": "drink vine"
+                        }
+                    }
+                }
+            ]
+        },
+        "go_home": {
+            "type": "function",
+            "actions": [
+                {
+                    "workflowRef": {
+                        "name": "println",
+                        "arguments": {
+                            "var": "drink bear"
+                        }
+                    }
+                }
+            ]
+        },
+        "go_home1": {
+            "type": "function",
+            "actions": [
+                {
+                    "workflowRef": {
+                        "name": "println",
+                        "arguments": {
+                            "var": "drink bear"
+                        }
+                    }
+                }
+            ]
+        }        
+    }
+}
+'/

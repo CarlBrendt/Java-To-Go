@@ -1,0 +1,20 @@
+@startuml
+start
+    repeat
+        /'If_0'/if (name == exit) then (exit)
+            break;
+        else (нет)
+            /'act_0'/:act_0;
+        endif
+    repeat while (true)
+stop
+@enduml
+/'
+{
+"activities":{
+  "If_0" : { },
+  "act_0" : {
+    "type" : "inject"
+  }
+}}
+'/

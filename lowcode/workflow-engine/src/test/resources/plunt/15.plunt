@@ -1,0 +1,98 @@
+@startuml
+start
+    /'e1'/:e1;
+    /'e2'/:e2;
+    repeat
+        /'e3'/:e3;
+            /'if_0'/if (y?) then (да)
+				/'e4'/:e4;
+				/'if_1'/if (y?) then (да)
+					/'e5'/:e5;
+				else (нет)
+					/'e6'/:e6;
+				endif
+            else (нет)
+                /'e7'/:e7;
+            endif		
+        /'e8'/:e8;
+        /'if_2'/if (завершить процесс?) then (да)
+            break;
+        else (нет)
+            /'if_3'/if (согласованно?) then (да)
+                repeat
+                    /'e9'/:e9;
+                    /'if_4'/if (name == exit) then (exit)
+                        break;
+                    else (нет)
+                        /'e10'/:e10;
+                    endif
+                repeat while (true)
+            else (нет)
+                /'e11'/:e11;
+                /'e12'/:e12;
+            endif
+        endif
+    repeat while (true)
+    /'e13'/:e13;
+stop
+@enduml
+/'
+{
+  "activities" : {
+    "e1" : {
+      "type" : "workflow_call"
+    },
+    "e2" : {
+      "type" : "workflow_call"
+    },
+    "e3" : {
+      "type" : "workflow_call"
+    },
+    "if_0" : {
+      "condition" : "spel{'EXIT'.equals(#result.get(0).get('type'))}"
+    },
+    "e4" : {
+      "type" : "workflow_call"
+    },
+    "if_1" : {
+      "condition" : "spel{'DRINK_VINE'.equals(#result.get(0).get('type'))}"
+    },
+    "e5" : {
+      "type" : "workflow_call"
+    },
+    "e6" : {
+      "type" : "workflow_call"
+    },
+    "e7" : {
+      "type" : "workflow_call"
+    },
+    "e8" : {
+      "type" : "workflow_call"
+    },
+    "if_2" : {
+      "condition" : "spel{'DRINK_VINE'.equals(#result.get(0).get('type'))}"
+    },
+    "if_3" : {
+      "condition" : "spel{'DRINK_VINE'.equals(#result.get(0).get('type'))}"
+    },
+    "e9" : {
+      "type" : "workflow_call"
+    },
+    "if_4" : {
+      "condition" : "spel{'DRINK_VINE'.equals(#result.get(0).get('type'))}"
+    },
+    "e10" : {
+      "type" : "workflow_call"
+    },
+    "e11" : {
+      "type" : "workflow_call"
+    },
+    "e12" : {
+      "type" : "workflow_call"
+    },
+    "e13" : {
+      "type" : "workflow_call"
+    }
+  }
+}
+'/

@@ -1,0 +1,79 @@
+{
+    "emptyBody": {},
+    "emptyRequiredFields": {"start": "", "activities": []},
+    "startNotFound": {"start":"2","activities":[{"id":"1","type":"inject"}]},
+    "activityTypeNotDefined": {"start":"2","activities":[{"id":"2"}]},
+    "activityTypeUnknownValue": {"start":"2","activities":[{"id":"2","type":"0"}]},
+    "activityNotUnique": {"start":"2","activities":[{"id":"2","type":"inject"},{"id":"2","type":"inject"}]},
+    "activityEmpty": {"start":"2","activities":[{}, {"id":"2","type":"inject"}]},
+    "unknownRootJsonField": {"start":"2","activities":[{"id":"2","type":"inject"}], "unknown": ""},
+    "rootWrongType": null,
+    "activitiesWrongType": {"start": "", "activities": ""},
+    "startWrongType": {"start": {}, "activities":[{"id":"1","type":"inject"}]},
+    "activityWrongType": {"start": "1", "activities":[null, "2", 5, {"id":"1","type":"inject"}]},
+    "parallel": {"start":"0","activities":[{"id":"0","type":"parallel","unknown":""},{"id":"1","type":"parallel","branches":"","completionType":[]},{"id":"2","type":"parallel","branches":[],"completionType":"gg"},{"id":"3","type":"parallel","branches":[null,1,{}],"completionType":"anyOf"},{"id":"5","type":"parallel","branches":["0","10"],"completionType":"allOf"}]},
+    "switch0": {"start":"0","activities":[{"id":"0","type":"switch"}]},
+    "switch1": {"start":"0","activities":[{"id":"0","description":"","type":"switch","outputFilter":"","dataConditions":"","defaultCondition":"","ggwp":10}]},
+    "switch2": {"start":"0","activities":[{"id":"0","description":"","type":"switch","outputFilter":{"var":"?"},"dataConditions":[{"condition":"?","transition":"1"}],"defaultCondition":{"condition":"?","transition":"1"},"ggwp":10}]},
+    "timer0": {"start": "0", "activities":[{"id":"0","type":"timer", "23": 23}]},
+    "timer1": {"start": "0", "activities":[{"id":"0","type":"timer", "timerDuration": "23m"}]},
+    "timer2": {"start": "0", "activities":[{"id":"0","type":"timer", "timerDuration": "-PT2M"}]},
+    "timer3": {"start": "0", "activities":[{"id":"0","type":"timer", "timerDuration": "PT2M", "transition": "6"}]},
+    "inject0": {"start": "0", "activities":[{"id":"0","type":"inject", "timerDuration": "23", "transition": "1", "injectData": ""}]},
+    "workflowCall0": {"start": "0", "activities":[{"id":"0","type":"workflow_call", "timerDuration": "23", "transition": "1"}]},
+    "workflowCall1": {"start": "0", "activities":[{"id":"0","type":"workflow_call", "workflowCall": "23"}]},
+    "workflowCall2": {"start": "0", "activities":[{"id":"0","type":"workflow_call", "workflowCall": {}}]},
+    "workflowCall3": {"start": "0", "activities":[{"id":"0","type":"workflow_call", "workflowCall": {"workflowRef": "", "gg": 2}}]},
+    "workflowCall4": {"start": "0", "activities":[{"id":"0","type":"workflow_call", "workflowCall": {"workflowRef": {"1":0}}}]},
+    "workflowCall5": {"start": "0", "activities":[{"id":"0","type":"workflow_call", "workflowCall": {"workflowRef": {"id":"123", "name": "", "azaza": null}}}]},
+    "workflowDef0": {"start": "0", "activities":[{"id":"0","type":"workflow_call", "workflowCall": {"workflowDef": {"id":"123"}}}]},
+    "workflowDef1": {"start": "0", "activities":[{"id":"0","type":"workflow_call", "workflowCall": {"workflowDef": {"type":null, "details": 0}}}]},
+    "workflowDef2": {"start": "0", "activities":[{"id":"0","type":"workflow_call", "workflowCall": {"workflowDef": {"type":"", "details": null}}}]},
+    "workflowDef3": {"start": "0", "activities":[{"id":"0","type":"workflow_call", "workflowCall": {"workflowDef": {"type":"23"}}}]},
+    "workflowDef4": {"start": "0", "activities":[{"id":"0","type":"workflow_call", "workflowCall": {"workflowDef": {"type":{}, "details": {"inputValidateSchema" : null, "outputValidateSchema" : null}}}}]},
+    "workflowDef5": {"start": "0", "activities":[{"id":"0","type":"workflow_call", "workflowCall": {"workflowDef": {"type":{}, "details": {"inputValidateSchema" : 1, "outputValidateSchema" : 2, "2": 2}}}}]},
+    "workflowDef6": {"start": "0", "activities":[{"id":"0","type":"workflow_call", "workflowCall": {"workflowDef": {"type":"rest_call", "details": {"inputValidateSchema" : {}, "outputValidateSchema" : {}, "3": 2}}}}]},
+    "workflowDef7": {"start": "0", "activities":[{"id":"0","type":"workflow_call", "workflowCall": {"workflowDef": {"type":"rest_call", "details": {"inputValidateSchema" : {}, "outputValidateSchema" : {}, "restCallConfig": 2}}}}]},
+    "workflowDef11": {"start": "0", "activities":[{"id":"0","type":"workflow_call", "workflowCall": {"workflowDef": {"type":"rest_call", "details": {"inputValidateSchema" : {}, "outputValidateSchema" : {}, "restCallConfig": {"restCallTemplateDef": {"id": "2"}}}}}}]},
+    
+    "workflowRuntimeDef0": {
+		"start": "0",
+		"activities": [
+			{
+				"id": "0",
+				"type": "workflow_call",
+				"workflowCall": {
+					"workflowRef": {
+						"name": "validate_Schema_test"
+					}
+				}
+			}
+		]
+	},
+	"workflowRuntimeDef1": {
+		"start": "0",
+		"activities": [
+			{
+				"id": "0",
+				"type": "inject",
+				"injectData": {
+					"1": "spel{#a + #b}"
+				}
+			}
+		]
+	}
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+}

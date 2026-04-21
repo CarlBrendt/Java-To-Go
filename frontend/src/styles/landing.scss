@@ -1,8 +1,13 @@
 @import "./neural-nexus-hero";
 
 .hero {
+  --hero-overlap-progress: 0;
   position: relative;
-  min-height: min(100vh, 920px);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  min-height: 100vh;
+  min-height: 100dvh;
   padding: clamp(32px, 6vw, 72px) clamp(20px, 4vw, 48px) 120px;
   display: flex;
   flex-direction: column;
@@ -73,38 +78,72 @@
 
 .hero__story-frame {
   margin-top: 14px;
-  position: relative;
-  padding: clamp(18px, 2.6vw, 26px) clamp(20px, 3vw, 30px);
-  border-radius: 20px;
-  border: 1px solid transparent;
-  background:
-    linear-gradient(rgba(11, 2, 5, 0.86), rgba(11, 2, 5, 0.76)) padding-box,
-    linear-gradient(
-      135deg,
-      rgba(254, 202, 202, 0.35),
-      rgba(239, 68, 68, 0.42),
-      rgba(127, 29, 29, 0.4)
-    )
-    border-box;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
-    inset 14px 0 0 rgba(185, 28, 28, 0.13),
-    0 22px 44px rgba(0, 0, 0, 0.44);
-  backdrop-filter: blur(16px);
+  display: grid;
+  gap: 10px;
 }
 
-.hero__story-frame::before {
-  content: "";
-  position: absolute;
-  top: 12px;
-  left: 14px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #fb7185;
+.hero__story-head {
+  display: grid;
+  gap: 9px;
+}
+
+.hero__story-headline {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(254, 202, 202, 0.92);
+}
+
+.hero__story-track {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.hero__story-step {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 241, 242, 0.26);
+  box-shadow: inset 0 0 0 1px rgba(255, 228, 230, 0.2);
+}
+
+.hero__story-step--done {
+  background: linear-gradient(
+    90deg,
+    rgba(248, 113, 113, 0.8),
+    rgba(220, 38, 38, 0.95)
+  );
+}
+
+.hero__story-step--active {
+  background: linear-gradient(90deg, #fda4af, #ef4444);
   box-shadow:
-    12px 0 0 rgba(251, 113, 133, 0.72),
-    24px 0 0 rgba(251, 113, 133, 0.48);
+    inset 0 0 0 1px rgba(255, 228, 230, 0.4),
+    0 0 18px rgba(239, 68, 68, 0.4);
+}
+
+.hero__story-card {
+  position: relative;
+  padding: clamp(18px, 2.6vw, 26px) clamp(20px, 3vw, 30px);
+  border-radius: 22px;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(155deg, rgba(26, 4, 8, 0.9), rgba(16, 3, 5, 0.82))
+      padding-box,
+    linear-gradient(
+        135deg,
+        rgba(254, 202, 202, 0.35),
+        rgba(239, 68, 68, 0.48),
+        rgba(127, 29, 29, 0.42)
+      )
+      border-box;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    inset 18px 0 0 rgba(185, 28, 28, 0.12),
+    0 24px 54px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(16px);
 }
 
 .hero__story-text {
@@ -117,21 +156,31 @@
 }
 
 .hero__story-nav {
-  margin-top: 18px;
+  margin-top: 10px;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
+  justify-content: flex-end;
+  width: 100%;
 }
 
 .hero__story-nav-btn {
-  border-radius: 999px;
-  padding: 11px 22px;
-  font-size: 0.86rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  padding: 0;
+  font-size: 1.02rem;
   font-weight: 700;
   cursor: pointer;
   border: none;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+  display: inline-grid;
+  place-items: center;
+  line-height: 1;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    opacity 0.18s ease;
 }
 
 .hero__story-nav-btn:disabled {
@@ -170,13 +219,17 @@
 }
 
 .hero__cta {
+  width: 100%;
   border-radius: 999px;
   padding: 16px 34px;
   font-size: 0.96rem;
   font-weight: 700;
   cursor: pointer;
   border: none;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
 }
 
 .hero__cta:hover {
@@ -186,7 +239,11 @@
 .hero__cta--ghost {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(110deg, rgba(127, 29, 29, 0.86), rgba(185, 28, 28, 0.88));
+  background: linear-gradient(
+    110deg,
+    rgba(127, 29, 29, 0.86),
+    rgba(185, 28, 28, 0.88)
+  );
   color: #fff1f2;
   border: 1px solid rgba(251, 113, 133, 0.45);
   box-shadow:
@@ -307,25 +364,13 @@
   left: 50%;
   bottom: 28px;
   transform: translateX(-50%);
-  display: grid;
-  justify-items: center;
-  gap: 6px;
+  display: block;
   background: none;
   border: 0;
   cursor: pointer;
   color: rgba(255, 223, 223, 0.8);
   font: inherit;
   padding: 8px;
-}
-
-.hero__scroll-ring {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 1px solid rgba(251, 113, 133, 0.45);
-  box-shadow: 0 0 24px rgba(239, 68, 68, 0.3);
-  display: grid;
-  place-items: center;
 }
 
 .hero__scroll-label {
@@ -336,7 +381,8 @@
 }
 
 .hero__scroll-arrow {
-  font-size: 1rem;
+  font-size: 1.55rem;
+  line-height: 1;
   animation: hero-bounce 1.8s ease-in-out infinite;
 }
 
@@ -354,7 +400,10 @@
 
 @media (max-width: 900px) {
   .hero {
-    padding: clamp(24px, 5vw, 36px) clamp(18px, 4vw, 28px) clamp(96px, 12vh, 120px);
+    padding: clamp(24px, 5vw, 36px) clamp(18px, 4vw, 28px)
+      clamp(96px, 12vh, 120px);
+    position: relative;
+    top: auto;
   }
 
   .hero__grid {
@@ -375,6 +424,10 @@
 
   .hero__story-text {
     min-height: 0;
+  }
+
+  .hero__story-track {
+    gap: 8px;
   }
 }
 

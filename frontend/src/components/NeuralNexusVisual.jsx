@@ -34,6 +34,7 @@ const NeuralNexusVisual = forwardRef(function NeuralNexusVisual(_, ref) {
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)")
       .matches;
+    const CAMERA_DISTANCE = reduceMotion ? 200 : 190;
     const nodeCount = reduceMotion ? 8000 : 28000;
     const trailCount = reduceMotion ? 3200 : 10000;
     const bgCount = reduceMotion ? 1200 : 3000;
@@ -828,7 +829,7 @@ const NeuralNexusVisual = forwardRef(function NeuralNexusVisual(_, ref) {
     scene.fog = new THREE.FogExp2(0x140606, 0.0005);
 
     camera = new THREE.PerspectiveCamera(75, 1, 0.1, 2500);
-    camera.position.set(0, 0, 155);
+    camera.position.set(0, 0, CAMERA_DISTANCE);
 
     renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -844,9 +845,10 @@ const NeuralNexusVisual = forwardRef(function NeuralNexusVisual(_, ref) {
     controls.enableDamping = true;
     controls.dampingFactor = 0.1;
     controls.rotateSpeed = 0.6;
-    controls.zoomSpeed = 0.9;
-    controls.minDistance = 30;
-    controls.maxDistance = 350;
+    controls.enableZoom = false;
+    controls.zoomSpeed = 0;
+    controls.minDistance = CAMERA_DISTANCE;
+    controls.maxDistance = CAMERA_DISTANCE;
     controls.enablePan = false;
     controls.autoRotate = !reduceMotion;
     controls.autoRotateSpeed = 1.0;

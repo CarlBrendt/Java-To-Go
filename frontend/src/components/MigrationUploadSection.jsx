@@ -1,43 +1,153 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const ALLOWED_ARCHIVE_TYPE = ".zip";
 const API_BASE = "/api/v1/minio";
 const POLL_INTERVAL_MS = 5000;
+const DEFAULT_LLM_MODEL = "mws-gpt-alpha";
+
+const LLM_OPTIONS = [
+  {
+    value: "mws-gpt-alpha",
+    label: "mws-gpt-alpha",
+  },
+  { value: "mws-cotype-pro-vl-32b", label: "mws-cotype-pro-vl-32b" },
+  { value: "mws-cotype-pro2.5", label: "mws-cotype-pro2.5" },
+  { value: "mws-gpt-oss-120b", label: "mws-gpt-oss-120b" },
+  { value: "mws-gpt-oss-20b", label: "mws-gpt-oss-20b" },
+  {
+    value: "mws-qwen3.5-35b-a3b",
+    label: "mws-qwen3.5-35b-a3b",
+  },
+];
 
 const PIPELINE_STEPS = [
   { id: "upload", title: "Загрузка", subtitle: "Отправляем ZIP в хранилище" },
   { id: "queued", title: "Постановка", subtitle: "Создаем задачу миграции" },
   { id: "migrating", title: "Конвертация", subtitle: "Java -> Go и проверка" },
   { id: "packaging", title: "Упаковка", subtitle: "Собираем итоговый архив" },
-  { id: "completed", title: "Готово", subtitle: "Результат доступен для скачивания" },
+  {
+    id: "completed",
+    title: "Готово",
+    subtitle: "Результат доступен для скачивания",
+  },
 ];
-
-const PIPELINE_STROKE_D =
-  "M0,40 C20,22 38,30 50,26 C62,22 78,34 100,26";
-const PIPELINE_FILL_D = `${PIPELINE_STROKE_D} L100,100 L0,100 Z`;
+const ORBIT_STEPS = PIPELINE_STEPS.filter((step) => step.id !== "completed");
+const ORBIT_NODE_ANGLES = [180, 230, 310, 0];
+const ORBIT_NODE_RADIUS_PERCENT = 47.8;
 
 const PIPELINE_STEP_INDEX = PIPELINE_STEPS.reduce((acc, step, index) => {
   acc[step.id] = index;
   return acc;
 }, {});
 
+const PHASE_TO_PIPELINE_STEP = {
+  idle: "queued",
+  accepted: "queued",
+  queued: "queued",
+  pending: "queued",
+  preparing: "queued",
+  starting: "queued",
+  parsing: "migrating",
+  in_progress: "migrating",
+  processing: "migrating",
+  running: "migrating",
+  migrating: "migrating",
+  converting: "migrating",
+  packaging: "packaging",
+  zipping: "packaging",
+  uploading: "packaging",
+  uploading_ready: "packaging",
+  finalizing: "packaging",
+  completed: "completed",
+  done: "completed",
+  success: "completed",
+};
+
+const COMPLETE_STATUSES = new Set(["completed", "done", "success"]);
+const FAILED_STATUSES = new Set(["error", "failed"]);
+
+function resolvePipelineStepFromPhase(phase) {
+  if (!phase) return "migrating";
+  return PHASE_TO_PIPELINE_STEP[phase] ?? "migrating";
+}
+
+function resolvePipelineStepFromStatus(status) {
+  if (!status) return "migrating";
+  if (status === "accepted" || status === "awaiting_migration") return "queued";
+  if (status === "not_found") return "queued";
+  if (status === "in_progress") return "migrating";
+  return resolvePipelineStepFromPhase(status);
+}
+
+function resolveDownloadEndpoint(rawUrl, userId) {
+  const fallback = `${API_BASE}/minio-download-ready-zip?user_id=${userId}`;
+  if (!rawUrl || typeof rawUrl !== "string") return fallback;
+  if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://"))
+    return rawUrl;
+  if (rawUrl.startsWith("/")) return rawUrl;
+  return `/${rawUrl}`;
+}
+
+function extractFilename(response, fallbackName) {
+  const contentDisposition = response.headers.get("content-disposition") || "";
+  const utf8 = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  if (utf8) return decodeURIComponent(utf8).replace(/[/\\]/g, "_");
+  const plain = contentDisposition.match(/filename="?([^"]+)"?/i)?.[1];
+  if (plain) return plain.replace(/[/\\]/g, "_");
+  return fallbackName;
+}
+
+function normalizeStatusPayload(data) {
+  const status = String(data?.status || "").toLowerCase();
+  const phase = String(data?.migration?.phase || "").toLowerCase();
+  const counts = data?.counts || {};
+  const filesCount = Number(data?.files_count ?? 0);
+  const readyOutputZips = Number(counts?.ready_output_zips ?? 0);
+  const readyBucketObjects = Number(counts?.ready_bucket_objects ?? 0);
+  const hasReadyZip =
+    Boolean(data?.has_ready_zip) ||
+    Boolean(data?.has_zip) ||
+    Boolean(data?.download_url) ||
+    readyOutputZips > 0 ||
+    readyBucketObjects > 0;
+  const isFailed = FAILED_STATUSES.has(status) || FAILED_STATUSES.has(phase);
+  const isCompleted =
+    COMPLETE_STATUSES.has(status) ||
+    COMPLETE_STATUSES.has(phase) ||
+    hasReadyZip;
+  const inferredStep = phase
+    ? resolvePipelineStepFromPhase(phase)
+    : resolvePipelineStepFromStatus(status);
+  const pipelineStep = isCompleted ? "completed" : inferredStep;
+  return {
+    status,
+    phase,
+    message: data?.message || "",
+    downloadUrl: data?.download_url || "",
+    filesCount,
+    hasReadyZip,
+    isFailed,
+    isCompleted,
+    pipelineStep,
+  };
+}
+
 function MigrationUploadSection() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isDragActive, setIsDragActive] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const [, setErrorMessage] = useState("");
   const [downloadUrl, setDownloadUrl] = useState("");
   const [downloadName, setDownloadName] = useState("migrated-service.zip");
-  const [migrationStatus, setMigrationStatus] = useState("");
+  const [, setMigrationStatus] = useState("");
   const [pipelineStep, setPipelineStep] = useState("idle");
   const [failedStep, setFailedStep] = useState("");
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_LLM_MODEL);
+  const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const abortControllerRef = useRef(null);
   const pollRef = useRef(null);
   const userIdRef = useRef(null);
-  const strokePathRef = useRef(null);
-  const [curvePoints, setCurvePoints] = useState(null);
-  const gradientId = useId().replace(/:/g, "");
+  const modelMenuRef = useRef(null);
 
   const selectedFileSize = useMemo(() => {
     if (!selectedFile) return "";
@@ -45,25 +155,22 @@ function MigrationUploadSection() {
     return `${sizeInMb.toFixed(2)} MB`;
   }, [selectedFile]);
 
-  const activePipelineStepId = pipelineStep === "failed" ? failedStep : pipelineStep;
-  const activePipelineStepIndex = PIPELINE_STEP_INDEX[activePipelineStepId] ?? -1;
-  const pipelineProgressPercent =
-    activePipelineStepIndex < 0
-      ? 0
-      : Math.round(
-          ((activePipelineStepIndex + (pipelineStep === "completed" ? 1 : 0)) /
-            PIPELINE_STEPS.length) *
-            100
-        );
-
-  const pipelineCaption =
+  const activePipelineStepId =
+    pipelineStep === "failed" ? failedStep : pipelineStep;
+  const activeStepData =
+    PIPELINE_STEPS.find((step) => step.id === activePipelineStepId) ||
+    PIPELINE_STEPS[0];
+  const selectedModelOption =
+    LLM_OPTIONS.find((option) => option.value === selectedModel) ||
+    LLM_OPTIONS[0];
+  const orbitStatusLabel =
     pipelineStep === "failed"
-      ? "Пайплайн остановлен на ошибке"
+      ? "ОШИБКА"
       : pipelineStep === "completed"
-        ? "Все этапы завершены"
+        ? "ГОТОВО К СКАЧИВАНИЮ"
         : pipelineStep === "idle"
-          ? "Ожидаем запуск миграции"
-          : "Идёт выполнение этапов";
+          ? "ОЖИДАНИЕ ЗАПУСКА"
+          : "ВЫПОЛНЕНИЕ";
 
   const getUserId = () => {
     if (!userIdRef.current) {
@@ -92,6 +199,16 @@ function MigrationUploadSection() {
     setPipelineStep(step);
   };
 
+  const handleDownloadResult = () => {
+    if (!downloadUrl) return;
+    const anchor = document.createElement("a");
+    anchor.href = downloadUrl;
+    anchor.download = downloadName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+  };
+
   const markPipelineAsFailed = (fallbackStep = "upload") => {
     const stepToMark = pipelineStep === "idle" ? fallbackStep : pipelineStep;
     setFailedStep(stepToMark);
@@ -109,49 +226,24 @@ function MigrationUploadSection() {
     return "pending";
   };
 
-  useLayoutEffect(() => {
-    const measure = () => {
-      const path = strokePathRef.current;
-      if (!path || typeof path.getTotalLength !== "function") return;
-      const length = path.getTotalLength();
-      if (!length) return;
-      const fractions = [0, 0.25, 0.5, 0.75, 1];
-      setCurvePoints(
-        fractions.map((fraction) => {
-          const point = path.getPointAtLength(length * fraction);
-          return { x: point.x, y: point.y };
-        })
-      );
-    };
-
-    const raf = requestAnimationFrame(() => {
-      measure();
-    });
-    window.addEventListener("resize", measure);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("resize", measure);
-    };
-  }, []);
-
   const startPolling = (userId) => {
     stopPolling();
 
     pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(
-          `${API_BASE}/migrate/status?user_id=${userId}`
-        );
+        const res = await fetch(`${API_BASE}/migrate/status?user_id=${userId}`);
         const data = await res.json();
+        const normalized = normalizeStatusPayload(data);
 
-        if (data.status === "completed") {
+        if (normalized.isCompleted) {
           stopPolling();
           setPipelineState("packaging");
-          setMigrationStatus("Миграция завершена. Скачиваем результат...");
 
-          const zipRes = await fetch(
-            `${API_BASE}/minio-download-ready-zip?user_id=${userId}`
+          const downloadEndpoint = resolveDownloadEndpoint(
+            normalized.downloadUrl,
+            userId,
           );
+          const zipRes = await fetch(downloadEndpoint);
 
           if (!zipRes.ok) {
             throw new Error(`Download failed: ${zipRes.status}`);
@@ -161,27 +253,35 @@ function MigrationUploadSection() {
           const url = URL.createObjectURL(blob);
 
           setDownloadUrl(url);
-          setDownloadName(`${userId}.zip`);
-          setSuccessMessage("Миграция завершена успешно. Архив готов к скачиванию.");
-          setMigrationStatus("");
+          setDownloadName(extractFilename(zipRes, `${userId}.zip`));
           setPipelineState("completed");
           setIsUploading(false);
-        } else if (data.status === "error") {
+        } else if (normalized.isFailed) {
           stopPolling();
-          setErrorMessage(data.message || "Ошибка миграции.");
-          setMigrationStatus("");
+          setErrorMessage(normalized.message || "Ошибка миграции.");
           markPipelineAsFailed("migrating");
           setIsUploading(false);
         } else {
-          setPipelineState("migrating");
+          const phaseInfo = normalized.phase
+            ? ` (phase: ${normalized.phase})`
+            : "";
+          const filesInfo =
+            normalized.filesCount > 0
+              ? ` Файлов: ${normalized.filesCount}.`
+              : "";
+          setPipelineState(normalized.pipelineStep);
           setMigrationStatus(
-            `Статус: ${data.status}. Файлов: ${data.files_count || "..."}`
+            normalized.message
+              ? `${normalized.message}${phaseInfo}${filesInfo}`
+              : `Статус: ${normalized.status || "in_progress"}${phaseInfo}.${filesInfo}`,
           );
         }
       } catch (err) {
         console.error("Poll error:", err);
         stopPolling();
-        setErrorMessage("Не удалось получить статус миграции. Попробуйте снова.");
+        setErrorMessage(
+          "Не удалось получить статус миграции. Попробуйте снова.",
+        );
         setMigrationStatus("");
         markPipelineAsFailed("migrating");
         setIsUploading(false);
@@ -197,7 +297,6 @@ function MigrationUploadSection() {
 
     if (!isZipByMime && !isZipByName) {
       setSelectedFile(null);
-      setSuccessMessage("");
       setErrorMessage("Допустим только ZIP-архив (.zip).");
       return;
     }
@@ -205,7 +304,6 @@ function MigrationUploadSection() {
     resetGeneratedFile();
     setSelectedFile(file);
     setErrorMessage("");
-    setSuccessMessage("");
     setMigrationStatus("");
     setPipelineStep("idle");
     setFailedStep("");
@@ -229,12 +327,29 @@ function MigrationUploadSection() {
     stopPolling();
     resetGeneratedFile();
     setSelectedFile(null);
-    setSuccessMessage("");
     setErrorMessage("");
     setMigrationStatus("");
     setPipelineStep("idle");
     setFailedStep("");
     userIdRef.current = null;
+  };
+
+  const handleRestartView = () => {
+    if (isUploading) return;
+    stopPolling();
+    abortControllerRef.current?.abort();
+    if (userIdRef.current) {
+      fetch(`${API_BASE}/minio-delete-user?user_id=${userIdRef.current}`, {
+        method: "DELETE",
+      }).catch(() => {});
+      userIdRef.current = null;
+    }
+    resetGeneratedFile();
+    setErrorMessage("");
+    setMigrationStatus("");
+    setPipelineStep("idle");
+    setFailedStep("");
+    setIsModelMenuOpen(false);
   };
 
   const handleStartMigration = async ({ isRetry = false } = {}) => {
@@ -255,7 +370,6 @@ function MigrationUploadSection() {
     const userId = getUserId();
 
     setErrorMessage("");
-    setSuccessMessage("");
     setMigrationStatus("Загружаем файл...");
     setPipelineState("upload");
     setIsUploading(true);
@@ -266,6 +380,7 @@ function MigrationUploadSection() {
       const params = new URLSearchParams({
         user_id: userId,
         auto_migrate: "true",
+        llm_model: selectedModel,
       });
 
       const uploadRes = await fetch(
@@ -274,12 +389,14 @@ function MigrationUploadSection() {
           method: "POST",
           body: formData,
           signal: controller.signal,
-        }
+        },
       );
 
       if (!uploadRes.ok) {
         const errData = await uploadRes.json().catch(() => ({}));
-        throw new Error(errData.message || `Upload failed: ${uploadRes.status}`);
+        throw new Error(
+          errData.message || `Upload failed: ${uploadRes.status}`,
+        );
       }
 
       const uploadData = await uploadRes.json();
@@ -296,27 +413,13 @@ function MigrationUploadSection() {
       if (error.name === "AbortError") {
         setErrorMessage("Запрос остановлен пользователем.");
       } else {
-        setErrorMessage(error.message || "Что-то пошло не так. Попробуйте еще раз.");
+        setErrorMessage(
+          error.message || "Что-то пошло не так. Попробуйте еще раз.",
+        );
       }
       setMigrationStatus("");
       markPipelineAsFailed("upload");
       setIsUploading(false);
-    }
-  };
-
-  const handleStopMigration = () => {
-    abortControllerRef.current?.abort();
-    stopPolling();
-    setIsUploading(false);
-    setMigrationStatus("");
-    setPipelineStep("idle");
-    setFailedStep("");
-
-    const userId = userIdRef.current;
-    if (userId) {
-      fetch(`${API_BASE}/minio-delete-user?user_id=${userId}`, {
-        method: "DELETE",
-      }).catch(() => {});
     }
   };
 
@@ -326,90 +429,30 @@ function MigrationUploadSection() {
       abortControllerRef.current?.abort();
       stopPolling();
     },
-    [downloadUrl]
+    [downloadUrl],
   );
 
-  const pipelinePanel = (
-    <div className="mc-pipeline">
-      {isUploading ? <span className="mc-pipeline__pulse" aria-hidden="true" /> : null}
-      <div className="mc-pipeline__surface">
-        <p className="mc-pipeline__caption">{pipelineCaption}</p>
-        <div className="mc-chart">
-          <div className="mc-chart__value">{pipelineProgressPercent}%</div>
-          <svg
-            className="mc-chart__svg mc-chart__glow"
-            viewBox="0 0 100 48"
-            preserveAspectRatio="xMidYMid meet"
-            role="img"
-            aria-label="Статус этапов миграции"
-          >
-            <defs>
-              <linearGradient
-                id={`${gradientId}-stroke`}
-                x1="0%"
-                y1="0%"
-                x2="100%"
-                y2="0%"
-              >
-                <stop offset="0%" stopColor="#f87171" />
-                <stop offset="45%" stopColor="#ef4444" />
-                <stop offset="100%" stopColor="#be123c" />
-              </linearGradient>
-              <linearGradient
-                id={`${gradientId}-fill`}
-                x1="0%"
-                y1="0%"
-                x2="0%"
-                y2="100%"
-              >
-                <stop offset="0%" stopColor="rgba(239, 68, 68, 0.32)" />
-                <stop offset="100%" stopColor="rgba(21, 5, 7, 0.04)" />
-              </linearGradient>
-            </defs>
-            <path d={PIPELINE_FILL_D} fill={`url(#${gradientId}-fill)`} />
-            <path
-              ref={strokePathRef}
-              d={PIPELINE_STROKE_D}
-              fill="none"
-              stroke={`url(#${gradientId}-stroke)`}
-              strokeWidth="1.45"
-              vectorEffect="nonScalingStroke"
-              className="mc-pipeline-stroke"
-            />
-            {curvePoints?.map((point, index) => {
-              const step = PIPELINE_STEPS[index];
-              const status = getStepStatus(step.id);
-              const drop = 48 - point.y - 1.5;
-              return (
-                <g
-                  key={step.id}
-                  className={`mc-dot mc-dot--${status}`}
-                  transform={`translate(${point.x} ${point.y})`}
-                >
-                  <line
-                    className="mc-dot__stem"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2={drop}
-                  />
-                  <circle className="mc-dot__knob" r="2.1" cx="0" cy="0" />
-                  <text
-                    className="mc-dot__label"
-                    x="0"
-                    y="-5.5"
-                    textAnchor="middle"
-                  >
-                    {step.title}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
-        </div>
-      </div>
-    </div>
-  );
+  useEffect(() => {
+    if (!isModelMenuOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (!modelMenuRef.current?.contains(event.target)) {
+        setIsModelMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setIsModelMenuOpen(false);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isModelMenuOpen]);
 
   return (
     <section id="migration-console" className="mc">
@@ -419,45 +462,238 @@ function MigrationUploadSection() {
           <h2 className="mc__title">Загрузка и пайплайн</h2>
           <p className="mc__subtitle">
             Выберите ZIP с Java Spring Boot сервисом. После запуска здесь же
-            отображается ход этапов: загрузка, постановка, конвертация, упаковка,
-            готовый архив.
+            отображается ход этапов: загрузка, постановка, конвертация,
+            упаковка, готовый архив.
           </p>
         </header>
 
-        <div className="mc__board">
-          <div className="mc__col mc__col--inputs">
-            {!selectedFile && (
-              <label
-                className={`mc-dropzone ${isDragActive ? "mc-dropzone--active" : ""}`}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  setIsDragActive(true);
-                }}
-                onDragLeave={() => setIsDragActive(false)}
-                onDrop={handleDrop}
+        <div className="mc__setup">
+          <label className="mc-model">
+            <span className="mc-model__label">LLM модель</span>
+            <div ref={modelMenuRef} className="mc-model__select-wrap">
+              <button
+                type="button"
+                className="mc-model__select"
+                onClick={() => setIsModelMenuOpen((open) => !open)}
+                disabled={isUploading}
+                aria-haspopup="listbox"
+                aria-expanded={isModelMenuOpen}
               >
-                <input
-                  type="file"
-                  accept={ALLOWED_ARCHIVE_TYPE}
-                  onChange={handleInputChange}
-                />
-                <span className="mc-dropzone__icon" aria-hidden="true">
-                  &#8682;
+                <span>{selectedModelOption.label}</span>
+                <span className="mc-model__chevron" aria-hidden="true">
+                  {isModelMenuOpen ? "▲" : "▼"}
                 </span>
-                <span className="mc-dropzone__title">Перетащите ZIP сюда</span>
-                <span className="mc-dropzone__hint">
-                  или нажмите, чтобы выбрать файл с устройства
-                </span>
-                <span className="mc-dropzone__btn">Выбрать архив</span>
-              </label>
-            )}
+              </button>
+              {isModelMenuOpen ? (
+                <div className="mc-model__menu" role="listbox">
+                  {LLM_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`mc-model__option ${
+                        option.value === selectedModel
+                          ? "mc-model__option--active"
+                          : ""
+                      }`}
+                      onClick={() => {
+                        setSelectedModel(option.value);
+                        setIsModelMenuOpen(false);
+                      }}
+                      role="option"
+                      aria-selected={option.value === selectedModel}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </label>
 
-            {selectedFile && (
-              <div className="mc-file">
+          {!selectedFile ? (
+            <label
+              className={`mc-dropzone ${isDragActive ? "mc-dropzone--active" : ""}`}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setIsDragActive(true);
+              }}
+              onDragLeave={() => setIsDragActive(false)}
+              onDrop={handleDrop}
+            >
+              <input
+                type="file"
+                accept={ALLOWED_ARCHIVE_TYPE}
+                onChange={handleInputChange}
+              />
+              <span className="mc-dropzone__icon" aria-hidden="true">
+                &#8682;
+              </span>
+              <span className="mc-dropzone__title">Перетащите ZIP сюда</span>
+              <span className="mc-dropzone__hint">
+                или нажмите, чтобы выбрать файл с устройства
+              </span>
+              <span className="mc-dropzone__btn">Выбрать архив</span>
+            </label>
+          ) : (
+            <div className="mc-hud">
+              <aside className="mc-status-panel" aria-label="Статусы пайплайна">
                 <p className="mc-file__name">
-                  {selectedFile.name} ({selectedFileSize})
+                  Имя файла: {selectedFile.name} ({selectedFileSize})
                 </p>
-                {!isUploading && (
+                <ul className="mc-status-list">
+                  {ORBIT_STEPS.map((step) => {
+                    const status = getStepStatus(step.id);
+                    return (
+                      <li
+                        key={step.id}
+                        className={`mc-status-item mc-status-item--${status}`}
+                      >
+                        <span className="mc-status-item__title">
+                          {step.title}
+                        </span>
+                        <span className="mc-status-item__subtitle">
+                          {step.subtitle}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </aside>
+
+              <div className="mc-orbit">
+                <div className="mc-orbit__shell">
+                  <div className="mc-ring">
+                    <svg
+                      className="mc-ring__svg"
+                      viewBox="0 0 460 460"
+                      role="img"
+                      aria-label="Орбитальная диаграмма статусов миграции"
+                    >
+                      <circle
+                        className="mc-ring__inner-circ-2"
+                        cx="230"
+                        cy="230"
+                        r="120"
+                      />
+                      <circle
+                        className="mc-ring__inner-circ-1"
+                        cx="230"
+                        cy="230"
+                        r="160"
+                      />
+                      <circle
+                        className="mc-ring__ticks"
+                        cx="230"
+                        cy="230"
+                        r="220"
+                      />
+                      <circle
+                        className="mc-ring__dashes-2"
+                        cx="230"
+                        cy="230"
+                        r="210"
+                      />
+                      <circle
+                        className="mc-ring__main"
+                        cx="230"
+                        cy="230"
+                        r="195"
+                      />
+                      <circle
+                        className="mc-ring__inner"
+                        cx="230"
+                        cy="230"
+                        r="189"
+                      />
+                      <circle
+                        className="mc-ring__arc-orange"
+                        cx="230"
+                        cy="230"
+                        r="195"
+                      />
+                      <circle
+                        className="mc-ring__arc"
+                        cx="230"
+                        cy="230"
+                        r="195"
+                      />
+                    </svg>
+
+                    {ORBIT_STEPS.map((step, index) => {
+                      const status = getStepStatus(step.id);
+                      const isCurrentOnOrbit = status === "active";
+                      const isCompletedOnOrbit =
+                        pipelineStep === "completed" && step.id === "packaging";
+                      const angleDeg =
+                        ORBIT_NODE_ANGLES[index] ??
+                        (index * 360) / Math.max(1, ORBIT_STEPS.length);
+                      const angleRad = (angleDeg * Math.PI) / 180;
+                      const nodePosition = {
+                        left: `${50 + ORBIT_NODE_RADIUS_PERCENT * Math.cos(angleRad)}%`,
+                        top: `${50 + ORBIT_NODE_RADIUS_PERCENT * Math.sin(angleRad)}%`,
+                      };
+                      return (
+                        <div
+                          key={step.id}
+                          className={`mc-orbit__node mc-orbit__node--${status} ${
+                            isCurrentOnOrbit || isCompletedOnOrbit
+                              ? "mc-orbit__node--current"
+                              : ""
+                          }`}
+                          style={nodePosition}
+                        >
+                          <span
+                            className="mc-orbit__node-dot"
+                            aria-hidden="true"
+                          />
+                          <span className="mc-orbit__node-label">
+                            {step.title}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mc-ring__info">
+                    <div className="mc-ring__info-label">
+                      {orbitStatusLabel}
+                    </div>
+                    <div className="mc-ring__info-actions">
+                      {isUploading ? (
+                        <button
+                          type="button"
+                          className="mc-btn mc-btn--outline mc-ring__info-btn"
+                          disabled
+                        >
+                          В процессе
+                        </button>
+                      ) : downloadUrl ? (
+                        <button
+                          type="button"
+                          className="mc-btn mc-btn--white mc-ring__info-btn"
+                          onClick={handleDownloadResult}
+                        >
+                          Скачать
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="mc-btn mc-btn--primary mc-ring__info-btn"
+                          onClick={() => handleStartMigration()}
+                        >
+                          Начать
+                        </button>
+                      )}
+                    </div>
+                    <div className="mc-ring__info-subtitle">
+                      {activeStepData.subtitle}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mc-actions">
+                {!isUploading ? (
                   <button
                     type="button"
                     className="mc-btn mc-btn--outline"
@@ -465,70 +701,19 @@ function MigrationUploadSection() {
                   >
                     Удалить файл
                   </button>
-                )}
-              </div>
-            )}
-
-            <div className="mc-actions">
-              {isUploading && (
-                <button
-                  type="button"
-                  className="mc-btn mc-btn--white"
-                  onClick={handleStopMigration}
-                >
-                  Остановить
-                </button>
-              )}
-              {!isUploading && downloadUrl && (
-                <>
-                  <a
-                    className="mc-btn mc-btn--white"
-                    href={downloadUrl}
-                    download={downloadName}
-                  >
-                    Скачать результат
-                  </a>
+                ) : null}
+                {downloadUrl ? (
                   <button
                     type="button"
-                    className="mc-btn mc-btn--primary"
-                    onClick={() => handleStartMigration({ isRetry: true })}
+                    className="mc-btn mc-btn--white"
+                    onClick={handleRestartView}
                   >
-                    Повторить попытку
+                    Перезапустить
                   </button>
-                </>
-              )}
-              {!isUploading && !downloadUrl && !!errorMessage && (
-                <button
-                  type="button"
-                  className="mc-btn mc-btn--primary"
-                  onClick={() => handleStartMigration()}
-                >
-                  Повторить
-                </button>
-              )}
-              {!isUploading && !downloadUrl && !errorMessage && selectedFile && (
-                <button
-                  type="button"
-                  className="mc-btn mc-btn--primary"
-                  onClick={() => handleStartMigration()}
-                >
-                  Запустить миграцию
-                </button>
-              )}
+                ) : null}
+              </div>
             </div>
-
-            {migrationStatus && (
-              <p className="mc-msg mc-msg--info">{migrationStatus}</p>
-            )}
-            {successMessage && (
-              <p className="mc-msg mc-msg--ok">{successMessage}</p>
-            )}
-            {errorMessage && (
-              <p className="mc-msg mc-msg--err">{errorMessage}</p>
-            )}
-          </div>
-
-          <div className="mc__col mc__col--viz">{pipelinePanel}</div>
+          )}
         </div>
       </div>
     </section>

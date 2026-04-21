@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import NeuralNexusVisual from "./NeuralNexusVisual";
 
 const MIGRATION_ANCHOR_ID = "migration-console";
@@ -12,37 +12,44 @@ function scrollToMigration() {
 
 const STORY_SECTIONS = [
   {
+    id: "problem",
+    title: "Проблематика",
     body: (
       <>
-        <strong>Проблематика:</strong> поддержка набора Java-сервисов требует
-        заметных затрат на инфраструктуру и сопровождение. Полная ручная миграция
-        на Go дорогая и долгая, а «чёрный ящик» без контроля часто ломает
-        контракты API и оставляет скрытые расхождения в поведении.
+        Поддержка набора Java-сервисов требует заметных затрат на инфраструктуру
+        и сопровождение. Полная ручная миграция на Go дорогая и долгая, а
+        «чёрный ящик» без контроля часто ломает контракты API и оставляет
+        скрытые расхождения в поведении.
       </>
     ),
   },
   {
+    id: "solution",
+    title: "Решение",
     body: (
       <>
-        <strong>Что делает решение:</strong> предлагается полуавтоматический
-        pipeline — анализ Java-кода, перенос бизнес-логики, преобразование
-        структур данных, генерация черновиков Go, проверки и сравнение исходного
-        и целевого сервиса так, чтобы инженер оставался в контуре.
+        Предлагается полуавтоматический pipeline — анализ Java-кода, перенос
+        бизнес-логики, преобразование структур данных, генерация черновиков Go,
+        проверки и сравнение исходного и целевого сервиса так, чтобы инженер
+        оставался в контуре.
       </>
     ),
   },
   {
+    id: "goal",
+    title: "Цель",
     body: (
       <>
-        <strong>Цель:</strong> сохранить API-контракт и семантику: маршруты,
-        форматы запросов и ответов, статусы и ключевое поведение должны
-        оставаться максимально близкими к исходной системе.
+        Сохранить API-контракт и семантику: маршруты, форматы запросов и
+        ответов, статусы и ключевое поведение должны оставаться максимально
+        близкими к исходной системе.
       </>
     ),
   },
 ];
 
 function LandingHero() {
+  const heroRef = useRef(null);
   const neuralRef = useRef(null);
   const [storyStep, setStoryStep] = useState(0);
   const [scanning, setScanning] = useState(false);
@@ -80,8 +87,79 @@ function LandingHero() {
     setScanning(false);
   };
 
+  useEffect(() => {
+    const heroEl = heroRef.current;
+    if (!heroEl) return undefined;
+
+    let rafId = 0;
+    let lastFrameTime = 0;
+    let targetProgress = 0;
+    let currentProgress = 0;
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    const smoothingRate = reduceMotion ? 8 : 11;
+    const settleThreshold = 0.0008;
+
+    const setProgressVars = (value) => {
+      const asString = value.toFixed(3);
+      heroEl.style.setProperty("--hero-overlap-progress", asString);
+      document.documentElement.style.setProperty(
+        "--hero-overlap-progress",
+        asString,
+      );
+    };
+
+    const readTargetProgress = () => {
+      const raw = Math.min(
+        1,
+        Math.max(0, window.scrollY / window.innerHeight),
+      );
+      // Smoothstep easing for softer start/end of overlap.
+      return raw * raw * (3 - 2 * raw);
+    };
+
+    const animateTowardsTarget = (timestamp) => {
+      if (!lastFrameTime) lastFrameTime = timestamp;
+      const deltaMs = Math.min(48, timestamp - lastFrameTime);
+      lastFrameTime = timestamp;
+
+      const alpha = 1 - Math.exp(-(deltaMs / 1000) * smoothingRate);
+      currentProgress += (targetProgress - currentProgress) * alpha;
+      setProgressVars(currentProgress);
+
+      if (Math.abs(targetProgress - currentProgress) > settleThreshold) {
+        rafId = requestAnimationFrame(animateTowardsTarget);
+      } else {
+        currentProgress = targetProgress;
+        setProgressVars(currentProgress);
+        rafId = 0;
+        lastFrameTime = 0;
+      }
+    };
+
+    const onScroll = () => {
+      targetProgress = readTargetProgress();
+      if (!rafId) {
+        rafId = requestAnimationFrame(animateTowardsTarget);
+      }
+    };
+
+    targetProgress = readTargetProgress();
+    currentProgress = targetProgress;
+    setProgressVars(currentProgress);
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, []);
+
+  const totalSteps = STORY_SECTIONS.length;
+
   return (
-    <header className="hero">
+    <header ref={heroRef} className="hero">
       <div className="hero__grid">
         <div className="hero__copy">
           <p className="hero__eyebrow">MWS GPT ToolCall · beta</p>
@@ -95,40 +173,56 @@ function LandingHero() {
           </p>
 
           <div className="hero__story-frame">
-            <p className="hero__body hero__story-text">
-              {STORY_SECTIONS[storyStep].body}
-            </p>
-            <div className="hero__story-nav">
-              {storyStep > 0 ? (
+            <div className="hero__story-head">
+              <p className="hero__story-headline">
+                Этап: {STORY_SECTIONS[storyStep].title}
+              </p>
+              <div className="hero__story-track" aria-hidden="true">
+                {STORY_SECTIONS.map((section, index) => (
+                  <span
+                    key={section.id}
+                    className={`hero__story-step ${
+                      index < storyStep
+                        ? "hero__story-step--done"
+                        : index === storyStep
+                          ? "hero__story-step--active"
+                          : ""
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="hero__story-card">
+              <p className="hero__body hero__story-text">
+                {STORY_SECTIONS[storyStep].body}
+              </p>
+              <div className="hero__story-nav">
                 <button
                   type="button"
                   className="hero__story-nav-btn hero__story-nav-btn--ghost"
-                  onClick={() => startStepTransition(storyStep - 1)}
+                  onClick={() =>
+                    startStepTransition(
+                      (storyStep - 1 + totalSteps) % totalSteps,
+                    )
+                  }
                   disabled={scanning}
+                  aria-label="Предыдущий этап"
                 >
-                  Назад
+                  <span aria-hidden="true">←</span>
                 </button>
-              ) : null}
-              {storyStep < STORY_SECTIONS.length - 1 ? (
                 <button
                   type="button"
                   className="hero__story-nav-btn hero__story-nav-btn--primary"
-                  onClick={() => startStepTransition(storyStep + 1)}
+                  onClick={() =>
+                    startStepTransition((storyStep + 1) % totalSteps)
+                  }
                   disabled={scanning}
+                  aria-label="Следующий этап"
                 >
-                  Далее
+                  <span aria-hidden="true">→</span>
                 </button>
-              ) : null}
-              {storyStep === STORY_SECTIONS.length - 1 ? (
-                <button
-                  type="button"
-                  className="hero__story-nav-btn hero__story-nav-btn--primary"
-                  onClick={() => startStepTransition(0)}
-                  disabled={scanning}
-                >
-                  К проблематике
-                </button>
-              ) : null}
+              </div>
             </div>
           </div>
 
@@ -154,17 +248,6 @@ function LandingHero() {
           ) : null}
         </div>
       </div>
-
-      <button
-        type="button"
-        className="hero__scroll"
-        onClick={scrollToMigration}
-        aria-label="Прокрутить к консоли миграции"
-      >
-        <span className="hero__scroll-ring" />
-        <span className="hero__scroll-label">вниз к консоли</span>
-        <span className="hero__scroll-arrow">↓</span>
-      </button>
     </header>
   );
 }

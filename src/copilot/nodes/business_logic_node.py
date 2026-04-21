@@ -147,7 +147,7 @@ async def node_business_logic(state: MigrationGraphState) -> dict:
     )
 
     settings = APISettings()
-    llm = build_mws_chat_llm(settings)
+    llm = build_mws_chat_llm(settings, state.get("mws_model_name"))
 
     try:
         msg = await llm.ainvoke([HumanMessage(content=prompt_content)])

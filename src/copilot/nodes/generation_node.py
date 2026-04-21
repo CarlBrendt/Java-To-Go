@@ -51,7 +51,7 @@ async def node_generate_api_layer(state: MigrationGraphState) -> dict:
 
     # ── 3. Генерируем handlers.go через LLM ──
     settings = APISettings()
-    llm = build_mws_chat_llm(settings)
+    llm = build_mws_chat_llm(settings, state.get("mws_model_name"))
 
     handlers_code = await _generate_handlers_via_llm(
         llm, api_endpoints, models_code, service_code,

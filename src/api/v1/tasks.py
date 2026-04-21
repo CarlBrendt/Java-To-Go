@@ -18,7 +18,7 @@ settings = APISettings()
 logger = logging.getLogger(__name__)
 
 
-def migration_status_object_key(user_id: str) -> str:
+async def migration_status_object_key(user_id: str) -> str:
     """Ключ JSON в MinIO с фазой миграции (running / failed)."""
     return f"meta/user_{user_id}/migration_status.json"
 
@@ -126,7 +126,7 @@ async def run_migration_for_user(
         if not projects:
             return {"status": "error", "message": "No Java projects found"}
 
-        marker_key = migration_status_object_key(user_id)
+        marker_key = await migration_status_object_key(user_id)
         await _put_migration_status_json(
             service,
             bucket_name,

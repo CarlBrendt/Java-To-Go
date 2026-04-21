@@ -23,7 +23,7 @@ async def download_ready_zip(
     request: Request,
     user_id: str,
     filename: str | None = None,
-):
+) -> JSONResponse:
     service = request.app.state.minio
     bucket_name = settings.minio_bucket
 
@@ -40,8 +40,10 @@ async def download_ready_zip(
         raise HTTPException(status_code=502, detail=str(e)) from e
 
     safe_name = download_name.replace('"', "_")
-    return Response(
+
+    return JSONResponse(
         content=data,
+        status_code=200,
         media_type="application/zip",
         headers={
             "Content-Disposition": f'attachment; filename="{safe_name}"',
@@ -181,7 +183,7 @@ async def migration_status(
         ready_prefix = f"ready/user_{user_id}/"
         processed_prefix = f"processed/user_{user_id}/"
         raw_prefix = f"raw/user_{user_id}_"
-        meta_key = migration_status_object_key(user_id)
+        meta_key = await migration_status_object_key(user_id)
 
         ready_objs = await service.list_objects(bucket_name, ready_prefix)
         processed_objs = await service.list_objects(bucket_name, processed_prefix)
@@ -346,8 +348,3 @@ async def delete_user_files(
     except Exception as e:
         logger.error(f"User delete failed: {e}")
         return {"status": "error", "message": str(e)}
-
-# эндпоинт для возврата zip файла
-
-# не удалять кодовую базу и провести тестирование по причине падения и редачить сам себя
-# брал логи с автотестамми и поправлял себя

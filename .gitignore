@@ -4,3 +4,4 @@ venv/
 build/
 *task_repo.egg-info
 .env
+.venv/

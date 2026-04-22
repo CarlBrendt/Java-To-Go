@@ -15,8 +15,7 @@ from src.copilot.nodes import (
     node_build_check,
     node_reporting_packaging,
     node_consolidate,
-    node_lint_fix,
-    node_syntax_fix_llm_feedback
+    node_lint_fix
 )
 from src.settings.config import APISettings
 
@@ -25,7 +24,7 @@ logger = logging.getLogger(__name__)
 def build_migration_graph(settings: APISettings):
     workflow = StateGraph(MigrationGraphState)
 
-    # Узлы
+    # Узлы (без syntax_fix_llm_feedback)
     workflow.add_node("parse", node_parse_java)
     workflow.add_node("plan", node_plan)
     workflow.add_node("data_layer", node_data_layer)
@@ -33,8 +32,6 @@ def build_migration_graph(settings: APISettings):
     workflow.add_node("api_layer", node_generate_api_layer)
     workflow.add_node("consolidate", node_consolidate)
     workflow.add_node("linter", node_lint_fix)
-    workflow.add_node("lint_check", node_lint_fix)
-    workflow.add_node("syntax_fix_llm_feedback", node_syntax_fix_llm_feedback)
     workflow.add_node("verify", node_verify_node)
     workflow.add_node("build_check", node_build_check)
     workflow.add_node("report", node_reporting_packaging)
@@ -46,25 +43,8 @@ def build_migration_graph(settings: APISettings):
     workflow.add_edge("data_layer", "business_logic")
     workflow.add_edge("business_logic", "api_layer")
     workflow.add_edge("api_layer", "consolidate")
-    workflow.add_edge("consolidate", "syntax_fix_llm")
-    workflow.add_edge("syntax_fix_llm", "linter")
-    workflow.add_edge("linter", "lint_check")
-    workflow.add_conditional_edges(
-        "lint_check",
-        lambda state: "syntax_fix_llm_feedback" if state.get("lint_issues") else "verify",
-        {
-            "syntax_fix_llm_feedback": "syntax_fix_llm_feedback",
-            "verify": "verify",
-        }
-    )
-    workflow.add_conditional_edges(
-        "syntax_fix_llm_feedback",
-        lambda state: "linter" if state.get("llm_syntax_fixes") else "verify",
-        {
-            "linter": "linter",
-            "verify": "verify",
-        }
-    )
+    workflow.add_edge("consolidate", "linter")  
+    workflow.add_edge("linter", "verify")
     workflow.add_edge("verify", "build_check")
     workflow.add_edge("build_check", "report")
     workflow.add_edge("report", END)

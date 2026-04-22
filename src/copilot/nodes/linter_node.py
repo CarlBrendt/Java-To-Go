@@ -181,23 +181,33 @@ async def node_lint_fix(state: MigrationGraphState) -> dict:
 # src/copilot/nodes/linter_node.py
 
 def _fix_unclosed_braces(content: str) -> str:
-    """Добавляет недостающие } в конце файла, если есть открытые {."""
-    depth = 0
-    for c in content:
-        if c == '{':
-            depth += 1
-        elif c == '}':
-            depth -= 1
+    """Более агрессивное исправление незакрытых скобок."""
+    lines = content.splitlines()
+    fixed_lines = []
+    stack = []
 
-    # Если есть незакрытые {
-    if depth > 0:
-        # Добавим в конец столько }, сколько нужно
-        lines = content.rstrip().splitlines()
-        # Попробуем найти последнюю { и закрыть
-        # Просто добавим в конец
-        content = content.rstrip() + '\n' + '}' * depth + '\n'
-    
-    return content
+    for line in lines:
+        cleaned_line = line
+        i = 0
+        while i < len(cleaned_line):
+            if cleaned_line[i] == '{':
+                stack.append('{')
+            elif cleaned_line[i] == '}':
+                if stack:
+                    stack.pop()
+                else:
+                    # Лишняя закрывающая — удаляем
+                    cleaned_line = cleaned_line[:i] + cleaned_line[i+1:]
+                    continue
+            i += 1
+        fixed_lines.append(cleaned_line)
+
+    # Добавляем недостающие }
+    final_content = '\n'.join(fixed_lines)
+    if stack:
+        final_content += '\n' + '}' * len(stack)
+
+    return final_content
 
 async def node_lint_only_check(state: MigrationGraphState) -> dict:
     """

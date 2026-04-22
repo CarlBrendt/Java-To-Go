@@ -8,7 +8,7 @@ from src.copilot.nodes.build_check_node import node_build_check
 from src.copilot.nodes.reporting_node import node_reporting_packaging
 from src.copilot.nodes.consolidation_node import node_consolidate
 from src.copilot.nodes.linter_node import node_lint_fix
-from src.copilot.nodes.node_syntax_fix_llm_feedback import node_syntax_fix_llm_feedback
+
 
 __all__ = [
     "node_parse_java",
@@ -20,6 +20,5 @@ __all__ = [
     "node_verify_node",
     "node_build_check",
     "node_reporting_packaging",
-    "node_lint_fix",
-    "node_syntax_fix_llm_feedback"
+    "node_lint_fix"
 ]

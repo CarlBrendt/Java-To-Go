@@ -1,3 +1,7 @@
-#!/bin/sh
+#!/bin/bash
+# entrypoint.sh
 
-python -m main
+mkdir -p /tmp/golangci-lint-cache
+export GOLANGCI_LINT_CACHE=/tmp/golangci-lint-cache
+
+exec python -m main

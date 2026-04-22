@@ -138,13 +138,13 @@ async def run_migration_for_user(
         )
         marker_active = True
 
-        # 3. Мигрируем каждый проект
+        # 3. Мигрируем каждый проект параллельно
         from src.copilot.run import run_migration
 
         jar_path = _find_jar()
         results = []
 
-        for project in projects:
+        async def process_project(project):
             project_name = project["name"]
             project_path = project["path"]
             output_dir = os.path.join(output_base, project_name)
@@ -160,33 +160,30 @@ async def run_migration_for_user(
                     mws_model_name=mws_model_name,
                 )
 
-                results.append({
+                return {
                     "project": project_name,
                     "status": result.get("status", "unknown"),
                     "build_passed": result.get("build_passed", False),
                     "endpoints_migrated": result.get("endpoints_migrated", 0),
                     "files_generated": result.get("files_generated", 0),
-                })
-
-                logger.info(
-                    f"Project {project_name}: "
-                    f"status={result.get('status')}, "
-                    f"endpoints={result.get('endpoints_migrated', 0)}"
-                )
+                }
 
             except Exception as e:
                 logger.exception(f"Migration failed for {project_name}: {e}")
-                results.append({
+                return {
                     "project": project_name,
                     "status": "error",
                     "message": str(e),
-                })
+                }
+
+        # Запускаем все задачи параллельно
+        tasks = [process_project(project) for project in projects]
+        results = await asyncio.gather(*tasks)
 
         # 4. Создаём ZIP для каждого проекта и загружаем в ready/
         # 4. Собираем ОДИН ZIP со всеми проектами и загружаем в ready/
         import io as _io
         import zipfile as _zipfile
-        import asyncio
 
         zip_buffer = _io.BytesIO()
         total_files = 0

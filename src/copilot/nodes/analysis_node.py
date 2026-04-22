@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import json
@@ -30,7 +31,8 @@ class JavaParser:
         except (subprocess.CalledProcessError, FileNotFoundError):
             raise RuntimeError("Java is not installed or not in PATH.")
 
-    def parse_file_content(self, filepath: str) -> Optional[Dict[str, Any]]:
+
+    async def parse_file_content(self, filepath: str) -> Optional[Dict[str, Any]]:
         """Parse a single Java file using the Java tool."""
         try:
             result = subprocess.run(
@@ -57,7 +59,8 @@ class JavaParser:
             logger.warning(f"Error parsing {filepath}: {e}")
             return None
 
-    def scan_directory(self, root_dir: str) -> Dict[str, Any]:
+
+    async def scan_directory(self, root_dir: str) -> Dict[str, Any]:
         """Scan a Java project directory and return full structure analysis."""
         structure: Dict[str, Any] = {
             "package": "",
@@ -83,6 +86,10 @@ class JavaParser:
         java_files_found = 0
         java_files_parsed = 0
 
+        # Собираем задачи для параллельной обработки
+        tasks = []
+        file_paths = []
+        
         for dirpath, dirnames, filenames in os.walk(root_dir):
             dirnames[:] = [d for d in dirnames if d not in skip_dirs]
             for filename in filenames:
@@ -90,21 +97,27 @@ class JavaParser:
                     continue
                 java_files_found += 1
                 filepath = os.path.join(dirpath, filename)
-                file_data = self.parse_file_content(filepath)
-                if not file_data:
+                file_paths.append(filepath)
+                tasks.append(self.parse_file_content(filepath))
+        
+        # Параллельно обрабатываем все файлы
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        for filepath, file_data in zip(file_paths, results):
+            if isinstance(file_data, Exception) or not file_data:
+                continue
+            java_files_parsed += 1
+
+            if file_data.get("package") and not structure["package"]:
+                structure["package"] = file_data["package"]
+
+            for cls in file_data.get("classes", []):
+                cls_name = cls.get("class_name", "")
+                if not cls_name:
                     continue
-                java_files_parsed += 1
-
-                if file_data.get("package") and not structure["package"]:
-                    structure["package"] = file_data["package"]
-
-                for cls in file_data.get("classes", []):
-                    cls_name = cls.get("class_name", "")
-                    if not cls_name:
-                        continue
-                    cls["source_file"] = os.path.relpath(filepath, root_dir)
-                    all_parsed_classes.append(cls)
-
+                cls["source_file"] = os.path.relpath(filepath, root_dir)
+                all_parsed_classes.append(cls)
+                
         # Второй проход: строим индексы
         # Индекс: имя класса → класс
         class_index: Dict[str, Dict[str, Any]] = {}
@@ -174,7 +187,7 @@ class JavaParser:
             # ── Controller (RestController) ──
             if is_controller:
                 structure["controllers"].append(cls)
-                base_path = self._extract_base_path(cls)
+                base_path = await self._extract_base_path(cls)
 
                 # Собираем эндпоинты:
                 # 1. Из самого класса
@@ -210,7 +223,7 @@ class JavaParser:
                 if not base_path:
                     for iface_name in cls.get("implements", []):
                         if iface_name in class_index:
-                            iface_base = self._extract_base_path(
+                            iface_base = await self._extract_base_path(
                                 class_index[iface_name]
                             )
                             if iface_base:
@@ -220,7 +233,7 @@ class JavaParser:
                     if not base_path and cls_name.endswith("Impl"):
                         iface_name = cls_name[:-4]
                         if iface_name in class_index:
-                            base_path = self._extract_base_path(
+                            base_path = await self._extract_base_path(
                                 class_index[iface_name]
                             )
 
@@ -228,7 +241,7 @@ class JavaParser:
                     method_path = method.get("path")
                     http_method = method.get("http_method")
                     if http_method and method_path is not None:
-                        full_path = self._join_paths(base_path, method_path)
+                        full_path = await self._join_paths(base_path, method_path)
                         structure["api_contract"].append({
                             "path": full_path,
                             "method": http_method,
@@ -370,7 +383,7 @@ class JavaParser:
         return structure
 
     @staticmethod
-    def _extract_base_path(cls: Dict[str, Any]) -> str:
+    async def _extract_base_path(cls: Dict[str, Any]) -> str:
         """Extract base path from @RequestMapping on the class level."""
         annotations = cls.get("annotations", [])
         for ann in annotations:
@@ -387,7 +400,7 @@ class JavaParser:
         return ""
 
     @staticmethod
-    def _join_paths(base: str, path: str) -> str:
+    async def _join_paths(base: str, path: str) -> str:
         base = base.rstrip("/") if base else ""
         if path and not path.startswith("/"):
             path = f"/{path}"
@@ -397,7 +410,7 @@ class JavaParser:
         return combined if combined else "/"
 
     @staticmethod
-    def _is_dto_class(cls: Dict[str, Any]) -> bool:
+    async def _is_dto_class(cls: Dict[str, Any]) -> bool:
         name = cls.get("class_name", "")
         dto_patterns = (
             "DTO", "Dto", "Request", "Response", "Config",
@@ -491,7 +504,7 @@ async def node_parse_java(state: MigrationGraphState) -> dict:
 
     try:
         parser = JavaParser(jar_path)
-        raw_structure = parser.scan_directory(project_path)
+        raw_structure = await parser.scan_directory(project_path)
 
         # Подсчёт реальных API-эндпоинтов (без exception handlers и feign)
         real_endpoints = [

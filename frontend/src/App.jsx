@@ -1,13 +1,13 @@
 import "./App.scss";
+import LandingHero from "./components/LandingHero";
 import MigrationUploadSection from "./components/MigrationUploadSection";
-import ServiceDescription from "./components/ServiceDescription";
 
 function App() {
   return (
-    <main className="page">
-      <ServiceDescription />
+    <>
+      <LandingHero />
       <MigrationUploadSection />
-    </main>
+    </>
   );
 }
 

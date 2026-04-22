@@ -146,7 +146,7 @@ def main():
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 
-    java_path = sys.argv[1] if len(sys.argv) > 1 else "workflow-ftp"
+    java_path = sys.argv[1] if len(sys.argv) > 1 else "java-test"
     output = sys.argv[2] if len(sys.argv) > 2 else "output/go_project"
 
     jar_path = ""

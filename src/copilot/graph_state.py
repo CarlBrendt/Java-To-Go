@@ -1,5 +1,5 @@
-from typing import TypedDict, List, Dict, Any
-
+from typing import Annotated, TypedDict, List, Dict, Any
+from operator import add
 
 class MigrationGraphState(TypedDict, total=False):
     # ── Input ──
@@ -48,5 +48,5 @@ class MigrationGraphState(TypedDict, total=False):
     report_generated: bool
 
     # ── Meta ──
-    status: str
+    status: Annotated[str, add]
     current_node: str

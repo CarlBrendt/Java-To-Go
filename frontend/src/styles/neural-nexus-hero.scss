@@ -1,0 +1,116 @@
+.nn-visual {
+  --nn-primary-color: #ef4444;
+  --nn-accent-color: #fecaca;
+  --nn-secondary-color: #b91c1c;
+  --nn-primary-rgb: 239, 68, 68;
+  --nn-accent-rgb: 254, 202, 202;
+  --nn-secondary-rgb: 185, 28, 28;
+  --nn-gradient-start: #7f1d1d;
+  --nn-gradient-middle: #ef4444;
+  --nn-gradient-end: #fca5a5;
+
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  color: var(--nn-primary-color);
+  background: transparent;
+  mask-image: radial-gradient(130% 125% at 56% 50%, black 58%, transparent 100%);
+  -webkit-mask-image: radial-gradient(130% 125% at 56% 50%, black 58%, transparent 100%);
+}
+
+.nn-visual__grid-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  z-index: 2;
+  background-image:
+    linear-gradient(rgba(var(--nn-primary-rgb), 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--nn-primary-rgb), 0.12) 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: nn-grid-shift 15s linear infinite;
+}
+
+@keyframes nn-grid-shift {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(60px, 60px);
+  }
+}
+
+.nn-visual__tech-pattern {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.032;
+  z-index: 2;
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(var(--nn-primary-rgb), 0.18) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(var(--nn-secondary-rgb), 0.16) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(var(--nn-accent-rgb), 0.08) 0%, transparent 70%);
+  animation: nn-tech-pulse 6s ease-in-out infinite;
+}
+
+@keyframes nn-tech-pulse {
+  0%,
+  100% {
+    opacity: 0.04;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.09;
+    transform: scale(1.12);
+  }
+}
+
+.nn-visual__circuit-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.09;
+  z-index: 2;
+  background-image:
+    linear-gradient(
+      45deg,
+      transparent 40%,
+      rgba(var(--nn-primary-rgb), 0.14) 41%,
+      rgba(var(--nn-primary-rgb), 0.14) 42%,
+      transparent 43%
+    ),
+    linear-gradient(
+      -45deg,
+      transparent 40%,
+      rgba(var(--nn-secondary-rgb), 0.14) 41%,
+      rgba(var(--nn-secondary-rgb), 0.14) 42%,
+      transparent 43%
+    );
+  background-size: 180px 180px;
+  animation: nn-circuit-flow 12s linear infinite;
+}
+
+@keyframes nn-circuit-flow {
+  0% {
+    background-position:
+      0 0,
+      0 0;
+  }
+  100% {
+    background-position:
+      180px 180px,
+      -180px 180px;
+  }
+}
+
+.nn-visual__canvas-mount {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.nn-visual__canvas-mount canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

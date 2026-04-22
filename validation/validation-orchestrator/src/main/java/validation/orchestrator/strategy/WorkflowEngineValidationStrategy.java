@@ -91,7 +91,7 @@ public class WorkflowEngineValidationStrategy implements ValidationStrategy {
                 null
             );
 
-            uploadReferenceArchive(migrationUserId, context.artifactBaseUrl(), referenceArchive);
+            uploadReferenceArchive(migrationUserId, context.artifactBaseUrl(), referenceArchive, run.mwsModel());
 
             updateRun(
                 run,
@@ -297,7 +297,7 @@ public class WorkflowEngineValidationStrategy implements ValidationStrategy {
         }
     }
 
-    private void uploadReferenceArchive(String migrationUserId, String artifactBaseUrl, Path referenceArchive)
+    private void uploadReferenceArchive(String migrationUserId, String artifactBaseUrl, Path referenceArchive, String mwsModel)
         throws IOException, InterruptedException {
         String boundary = "----JavaToGoBoundary" + UUID.randomUUID();
         byte[] fileBytes = Files.readAllBytes(referenceArchive);
@@ -318,6 +318,7 @@ public class WorkflowEngineValidationStrategy implements ValidationStrategy {
                     + "/api/v1/minio/minio-upload-zip?user_id="
                     + URLEncoder.encode(migrationUserId, StandardCharsets.UTF_8)
                     + "&auto_migrate=true"
+                    + mwsModelQuery(mwsModel)
             ))
             .timeout(HTTP_TIMEOUT)
             .header("Content-Type", "multipart/form-data; boundary=" + boundary)
@@ -328,6 +329,13 @@ public class WorkflowEngineValidationStrategy implements ValidationStrategy {
         if (response.statusCode() >= 400) {
             throw new IllegalStateException("Reference upload failed: HTTP " + response.statusCode() + " " + response.body());
         }
+    }
+
+    private String mwsModelQuery(String mwsModel) {
+        if (mwsModel == null || mwsModel.isBlank()) {
+            return "";
+        }
+        return "&mws_model=" + URLEncoder.encode(mwsModel.trim(), StandardCharsets.UTF_8);
     }
 
     private void awaitGeneratedArtifact(String migrationUserId, String artifactBaseUrl)
@@ -351,17 +359,37 @@ public class WorkflowEngineValidationStrategy implements ValidationStrategy {
 
             JsonNode statusNode = objectMapper.readTree(response.body());
             String status = statusNode.path("status").asText();
-            if ("completed".equals(status) && statusNode.path("has_zip").asBoolean(false)) {
+            String phase = statusNode.path("migration").path("phase").asText();
+            boolean hasReadyZip = statusNode.path("has_ready_zip").asBoolean(false)
+                || statusNode.path("has_zip").asBoolean(false);
+            boolean hasDownloadUrl = !statusNode.path("download_url").asText("").isBlank();
+
+            if (hasReadyZip || hasDownloadUrl) {
                 return;
             }
-            if ("error".equals(status)) {
-                throw new IllegalStateException(statusNode.path("message").asText("Migration failed"));
+            if (isFailedMigrationStatus(status) || isFailedMigrationStatus(phase)) {
+                String message = statusNode.path("message").asText("");
+                String error = statusNode.path("migration").path("error").asText("");
+                throw new IllegalStateException(firstNonBlank(message, error, "Migration failed"));
             }
 
             Thread.sleep(MIGRATION_POLL_INTERVAL.toMillis());
         }
 
         throw new IllegalStateException("Migration timed out while waiting for generated Go artifact");
+    }
+
+    private boolean isFailedMigrationStatus(String value) {
+        return "error".equals(value) || "failed".equals(value) || "migration_failed".equals(value);
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return "";
     }
 
     private void downloadGeneratedArtifact(String migrationUserId, String artifactBaseUrl, Path targetZip)

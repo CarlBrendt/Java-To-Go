@@ -30,7 +30,8 @@ public class ValidationOrchestratorController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public ValidationRunCreateResponse startRun(@RequestBody(required = false) ValidationRunRequest request) {
         ValidationRun run = orchestratorService.startRun(
-            request == null ? null : request.validationRunId()
+            request == null ? null : request.validationRunId(),
+            request == null ? null : request.mwsModel()
         );
         return new ValidationRunCreateResponse(
             run.validationRunId(),

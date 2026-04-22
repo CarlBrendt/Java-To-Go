@@ -19,6 +19,7 @@ class HealthResponse(BaseModel):
 
 class ValidationRunRequest(BaseModel):
     validation_run_id: str | None = None
+    mws_model: str | None = None
 
 
 class ValidationRunCreateResponse(BaseModel):

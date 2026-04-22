@@ -23,6 +23,7 @@ class ValidationOrchestratorClient:
                 f"{self._base_url}/api/v1/orchestrator/runs",
                 json={
                     "validationRunId": payload.validation_run_id,
+                    "mwsModel": payload.mws_model,
                 },
             )
             response.raise_for_status()

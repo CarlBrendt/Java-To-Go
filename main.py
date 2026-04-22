@@ -12,6 +12,7 @@ from src.api.v1.main_router import router as main_router
 from src.api.v1.health_router import router as health_router
 from src.api.v1.minio_router import router as minio_router
 from src.api.v1.mws_router import router as mws_router
+from src.api.v1.validation_router import router as validation_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -54,6 +55,7 @@ app = FastAPI(
 app.include_router(main_router, prefix="/api/v1/java-to-go", tags=["Java-to-Go Copilot"])
 app.include_router(minio_router, prefix="/api/v1/minio", tags=["Minio"])
 app.include_router(mws_router, prefix="/api/v1/mws", tags=["MWS GPT"])
+app.include_router(validation_router, prefix="/api/v1/validation", tags=["Validation"])
 app.include_router(health_router, prefix="/api/v1", tags=["Health"])
 
 app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)

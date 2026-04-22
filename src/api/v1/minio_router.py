@@ -18,6 +18,24 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _public_migration_error(raw_error: str | None) -> str:
+    error = (raw_error or "").strip()
+    if not error:
+        return "Миграция завершилась с ошибкой."
+
+    lowered = error.lower()
+    if (
+        "authenticationerror" in lowered
+        or "401" in lowered
+        or "unauthorized" in lowered
+        or "model_api_key" in lowered
+        or "mws" in lowered
+    ):
+        return "Проблема с подключением к МТС LLM."
+
+    return error
+
+
 @router.get("/minio-download-ready-zip")
 async def download_ready_zip(
     request: Request,
@@ -232,13 +250,14 @@ async def migration_status(
             }
 
         if phase == "failed":
+            public_error = _public_migration_error((marker or {}).get("error"))
             return {
                 "status": "migration_failed",
-                "message": (marker or {}).get("error", "Миграция завершилась с ошибкой."),
+                "message": public_error,
                 "counts": counts,
                 "migration": {
                     "phase": "failed",
-                    "error": (marker or {}).get("error"),
+                    "error": public_error,
                     "finished_at": (marker or {}).get("finished_at"),
                 },
                 "has_ready_zip": has_ready_zip,

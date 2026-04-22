@@ -4,6 +4,7 @@ public final class ValidationRun {
     private final String validationRunId;
     private final String startedAt;
     private final String resolvedStrategyKey;
+    private final String mwsModel;
 
     private volatile String migrationUserId;
     private volatile String status;
@@ -16,11 +17,12 @@ public final class ValidationRun {
     private volatile String summary;
     private volatile String finishedAt;
 
-    public ValidationRun(String validationRunId, String migrationUserId, String startedAt, String resolvedStrategyKey) {
+    public ValidationRun(String validationRunId, String migrationUserId, String startedAt, String resolvedStrategyKey, String mwsModel) {
         this.validationRunId = validationRunId;
         this.migrationUserId = migrationUserId;
         this.startedAt = startedAt;
         this.resolvedStrategyKey = resolvedStrategyKey;
+        this.mwsModel = mwsModel;
         this.status = "queued";
         this.stage = "queued";
         this.summary = "Validation run accepted";
@@ -44,6 +46,10 @@ public final class ValidationRun {
 
     public String resolvedStrategyKey() {
         return resolvedStrategyKey;
+    }
+
+    public String mwsModel() {
+        return mwsModel;
     }
 
     public String status() {

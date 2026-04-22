@@ -52,7 +52,7 @@ public class ValidationOrchestratorService {
         }
     }
 
-    public synchronized ValidationRun startRun(String requestedRunId) {
+    public synchronized ValidationRun startRun(String requestedRunId, String mwsModel) {
         Optional<ValidationRun> activeRun = findActiveRun();
         if (activeRun.isPresent()) {
             return activeRun.get();
@@ -65,7 +65,8 @@ public class ValidationOrchestratorService {
             runId,
             null,
             Instant.now().toString(),
-            defaultStrategyKey
+            defaultStrategyKey,
+            normalizeBlank(mwsModel)
         );
         runs.put(runId, run);
         executor.submit(() -> executeRun(run));
@@ -104,5 +105,9 @@ public class ValidationOrchestratorService {
         return runs.values().stream()
             .filter(run -> "queued".equals(run.status()) || "running".equals(run.status()))
             .findFirst();
+    }
+
+    private String normalizeBlank(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

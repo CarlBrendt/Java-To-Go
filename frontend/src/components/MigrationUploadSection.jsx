@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 const ALLOWED_ARCHIVE_TYPE = ".zip";
 const API_BASE = "/api/v1/minio";
+const VALIDATION_API_BASE = "/api/v1/validation";
 const POLL_INTERVAL_MS = 5000;
 const DEFAULT_LLM_MODEL = "mws-gpt-alpha";
 
@@ -65,6 +66,22 @@ const PHASE_TO_PIPELINE_STEP = {
 
 const COMPLETE_STATUSES = new Set(["completed", "done", "success"]);
 const FAILED_STATUSES = new Set(["error", "failed"]);
+const ACTIVE_VALIDATION_STATUSES = new Set(["queued", "running"]);
+
+const VALIDATION_STAGE_LABELS = {
+  queued: "В очереди",
+  preparing_reference_source: "Подготовка Java reference",
+  starting_migration: "Запуск миграции",
+  waiting_for_go_artifact: "Ожидание Go-артефакта",
+  starting_reference_runtime: "Запуск Java reference",
+  downloading_go_artifact: "Загрузка Go-артефакта",
+  preparing_go_source: "Подготовка Go-кода",
+  building_go_runtime: "Сборка Go-сервиса",
+  starting_go_runtime: "Запуск Go-сервиса",
+  running_parity_tests: "Parity-тесты",
+  finished: "Завершено",
+  failed: "Проблема с подключением к МТС LLM",
+};
 
 function resolvePipelineStepFromPhase(phase) {
   if (!phase) return "migrating";
@@ -136,7 +153,7 @@ function MigrationUploadSection() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isDragActive, setIsDragActive] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [, setErrorMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const [downloadUrl, setDownloadUrl] = useState("");
   const [downloadName, setDownloadName] = useState("migrated-service.zip");
   const [, setMigrationStatus] = useState("");
@@ -144,8 +161,12 @@ function MigrationUploadSection() {
   const [failedStep, setFailedStep] = useState("");
   const [selectedModel, setSelectedModel] = useState(DEFAULT_LLM_MODEL);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
+  const [validationRunId, setValidationRunId] = useState("");
+  const [validationRun, setValidationRun] = useState(null);
+  const [isValidationStarting, setIsValidationStarting] = useState(false);
   const abortControllerRef = useRef(null);
   const pollRef = useRef(null);
+  const validationPollRef = useRef(null);
   const userIdRef = useRef(null);
   const modelMenuRef = useRef(null);
 
@@ -171,6 +192,13 @@ function MigrationUploadSection() {
         : pipelineStep === "idle"
           ? "ОЖИДАНИЕ ЗАПУСКА"
           : "ВЫПОЛНЕНИЕ";
+  const validationInProgress = ACTIVE_VALIDATION_STATUSES.has(
+    validationRun?.status,
+  );
+  const validationStageLabel =
+    VALIDATION_STAGE_LABELS[validationRun?.stage] ||
+    validationRun?.stage ||
+    "Не запускалась";
 
   const getUserId = () => {
     if (!userIdRef.current) {
@@ -191,6 +219,13 @@ function MigrationUploadSection() {
     if (pollRef.current) {
       clearInterval(pollRef.current);
       pollRef.current = null;
+    }
+  };
+
+  const stopValidationPolling = () => {
+    if (validationPollRef.current) {
+      clearInterval(validationPollRef.current);
+      validationPollRef.current = null;
     }
   };
 
@@ -423,6 +458,89 @@ function MigrationUploadSection() {
     }
   };
 
+  const fetchValidationRun = async (runId) => {
+    const response = await fetch(`${VALIDATION_API_BASE}/runs/${runId}`);
+    if (!response.ok) {
+      throw new Error(`Validation status failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    setValidationRun(data);
+
+    if (!ACTIVE_VALIDATION_STATUSES.has(data.status)) {
+      stopValidationPolling();
+    }
+
+    return data;
+  };
+
+  const startValidationPolling = (runId) => {
+    stopValidationPolling();
+    validationPollRef.current = setInterval(() => {
+      fetchValidationRun(runId).catch((error) => {
+        stopValidationPolling();
+        setValidationRun({
+          status: "failed",
+          stage: "failed",
+          result: "failed",
+          parity_percent: null,
+          tests_total: 0,
+          tests_passed: 0,
+          tests_failed: 0,
+          summary:
+            error.message || "Не удалось получить статус проверки.",
+        });
+      });
+    }, POLL_INTERVAL_MS);
+  };
+
+  const handleStartValidation = async () => {
+    if (isValidationStarting || validationInProgress) return;
+
+    stopValidationPolling();
+    setIsValidationStarting(true);
+    setValidationRun({
+      status: "queued",
+      stage: "queued",
+      result: null,
+      parity_percent: null,
+      tests_total: 0,
+      tests_passed: 0,
+      tests_failed: 0,
+      summary: "Проверка поставлена в очередь.",
+    });
+
+    try {
+      const response = await fetch(`${VALIDATION_API_BASE}/runs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mws_model: selectedModel }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Validation start failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setValidationRunId(data.validation_run_id);
+      await fetchValidationRun(data.validation_run_id);
+      startValidationPolling(data.validation_run_id);
+    } catch (error) {
+      setValidationRun({
+        status: "failed",
+        stage: "failed",
+        result: "failed",
+        parity_percent: null,
+        tests_total: 0,
+        tests_passed: 0,
+        tests_failed: 0,
+        summary: error.message || "Не удалось запустить проверку.",
+      });
+    } finally {
+      setIsValidationStarting(false);
+    }
+  };
+
   useEffect(
     () => () => {
       if (downloadUrl) URL.revokeObjectURL(downloadUrl);
@@ -431,6 +549,10 @@ function MigrationUploadSection() {
     },
     [downloadUrl],
   );
+
+  useEffect(() => () => {
+    stopValidationPolling();
+  }, []);
 
   useEffect(() => {
     if (!isModelMenuOpen) return undefined;
@@ -688,6 +810,9 @@ function MigrationUploadSection() {
                     <div className="mc-ring__info-subtitle">
                       {activeStepData.subtitle}
                     </div>
+                    {errorMessage ? (
+                      <p className="mc-msg mc-msg--err">{errorMessage}</p>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -714,6 +839,68 @@ function MigrationUploadSection() {
               </div>
             </div>
           )}
+
+          <section className="mc-validation" aria-label="Проверка результата">
+            <div className="mc-validation__head">
+              <div>
+                <p className="mc-validation__eyebrow">validation</p>
+                <h3 className="mc-validation__title">Проверка parity</h3>
+              </div>
+              <button
+                type="button"
+                className="mc-btn mc-btn--primary"
+                onClick={handleStartValidation}
+                disabled={isValidationStarting || validationInProgress}
+              >
+                {isValidationStarting || validationInProgress
+                  ? "Проверка идет"
+                  : "Запустить"}
+              </button>
+            </div>
+
+            <div className="mc-validation__grid">
+              <div className="mc-validation__metric">
+                <span>Статус</span>
+                <strong>{validationRun?.status || "idle"}</strong>
+              </div>
+              <div className="mc-validation__metric">
+                <span>Стадия</span>
+                <strong>{validationStageLabel}</strong>
+              </div>
+              <div className="mc-validation__metric">
+                <span>Parity</span>
+                <strong>
+                  {validationRun?.parity_percent == null
+                    ? "—"
+                    : `${validationRun.parity_percent}%`}
+                </strong>
+              </div>
+              <div className="mc-validation__metric">
+                <span>Тесты</span>
+                <strong>
+                  {validationRun
+                    ? `${validationRun.tests_passed}/${validationRun.tests_total}`
+                    : "—"}
+                </strong>
+              </div>
+            </div>
+
+            {validationRunId ? (
+              <p className="mc-validation__run">Run ID: {validationRunId}</p>
+            ) : null}
+            <p
+              className={`mc-msg ${
+                validationRun?.status === "failed"
+                  ? "mc-msg--err"
+                  : validationRun?.status === "finished"
+                    ? "mc-msg--ok"
+                    : "mc-msg--info"
+              }`}
+            >
+              {validationRun?.summary ||
+                "Стандартная проверка использует reference-проект из lowcode."}
+            </p>
+          </section>
         </div>
       </div>
     </section>

@@ -1,12 +1,13 @@
-from __future__ import annotations
-from typing import TypedDict, List, Dict, Any
-
+from typing import Annotated, TypedDict, List, Dict, Any
+from operator import add
 
 class MigrationGraphState(TypedDict, total=False):
     # ── Input ──
     java_project_path: str
     output_dir: str
     jar_path: str
+    #: ID модели MWS (из GET /v1/models); если нет — берётся MODEL_NAME из .env
+    mws_model_name: str | None
 
     # ── Stage 1: Analysis ──
     java_structure: Dict[str, Any]
@@ -28,6 +29,8 @@ class MigrationGraphState(TypedDict, total=False):
     # ── Stage 5: API Layer ──
     generated_handlers_code: str
 
+    consolidation_fixes: List[str]
+    
     # ── All generated code ──
     generated_go_code: Dict[str, str]
 
@@ -45,5 +48,5 @@ class MigrationGraphState(TypedDict, total=False):
     report_generated: bool
 
     # ── Meta ──
-    status: str
+    status: Annotated[str, add]
     current_node: str

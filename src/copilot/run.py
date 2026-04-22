@@ -15,6 +15,7 @@ async def run_migration(
     java_path: str,
     output_dir: str = "output/go_project",
     jar_path: str = "",
+    mws_model_name: str | None = None,
 ) -> dict:
     """
     Запускает миграционный pipeline.
@@ -51,6 +52,7 @@ async def run_migration(
         "java_project_path": java_path,
         "output_dir": output_dir,
         "jar_path": jar_path,
+        "mws_model_name": mws_model_name,
         "status": "starting",
         "current_node": "",
         "generated_go_code": {},
@@ -144,7 +146,7 @@ def main():
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 
-    java_path = sys.argv[1] if len(sys.argv) > 1 else "workflow-ftp"
+    java_path = sys.argv[1] if len(sys.argv) > 1 else "java-test"
     output = sys.argv[2] if len(sys.argv) > 2 else "output/go_project"
 
     jar_path = ""

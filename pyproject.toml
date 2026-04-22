@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "httpx>=0.28.0",
     "fastapi>=0.135.3",
     "itsdangerous>=2.2.0",
     "langchain>=1.2.15",
@@ -17,4 +18,5 @@ dependencies = [
     "tree-sitter>=0.25.2",
     "tree-sitter-java>=0.23.5",
     "uvicorn>=0.44.0",
+    "aiohttp>=3.13.5",
 ]

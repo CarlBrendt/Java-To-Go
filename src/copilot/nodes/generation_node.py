@@ -16,15 +16,17 @@ logger = logging.getLogger(__name__)
 async def node_generate_api_layer(state: MigrationGraphState) -> dict:
     """Stage 5: API Layer & Routing.
 
-    Гибридный подход:
-    1. router.go и main.go генерируются ДЕТЕРМИНИСТИЧЕСКИ (шаблон)
-    2. handlers.go генерируется LLM (тела функций)
-    3. Если LLM не справился — fallback с TODO-заглушками
+    Полностью детерминистический подход:
+    1. router.go — шаблон
+    2. main.go — шаблон
+    3. handlers.go — шаблон с TODO для бизнес-логики
+    4. middleware.go — шаблон
+
+    LLM НЕ используется — handlers генерируются из api_contract.
     """
     contract = state.get("api_contract", [])
     models_code = state.get("generated_models_code", "")
     service_code = state.get("generated_service_code", "")
-    exception_handlers = state.get("exception_handlers", [])
 
     api_endpoints = [
         e for e in contract if not e.get("is_exception_handler")
@@ -41,23 +43,18 @@ async def node_generate_api_layer(state: MigrationGraphState) -> dict:
 
     existing_code = dict(state.get("generated_go_code", {}))
 
-    # ── 1. Генерируем router.go детерминистически ──
+    # ── 1. router.go ──
     router_code = _generate_router(api_endpoints)
     existing_code["router.go"] = router_code
 
-    # ── 2. Генерируем main.go детерминистически ──
+    # ── 2. main.go ──
     main_code = _generate_main()
     existing_code["main.go"] = main_code
 
-    # ── 3. Генерируем handlers.go через LLM ──
-    settings = APISettings()
-    llm = build_mws_chat_llm(settings)
-
-    handlers_code = await _generate_handlers_via_llm(
-        llm, api_endpoints, models_code, service_code,
-        exception_handlers,
+    # ── 3. handlers.go — ДЕТЕРМИНИСТИЧЕСКИ ──
+    handlers_code = _generate_deterministic_handlers(
+        api_endpoints, models_code, service_code
     )
-
     existing_code["handlers.go"] = handlers_code
 
     total_chars = sum(len(v) for v in existing_code.values())
@@ -72,6 +69,187 @@ async def node_generate_api_layer(state: MigrationGraphState) -> dict:
         "status": "api_layer_complete",
         "current_node": "api_layer",
     }
+
+
+def _generate_deterministic_handlers(
+    endpoints: list,
+    models_code: str,
+    service_code: str,
+) -> str:
+    # Собираем известные типы
+    known_types = set()
+    if models_code:
+        for match in re.finditer(
+            r'type\s+(\w+)\s+struct', models_code
+        ):
+            known_types.add(match.group(1))
+
+    handlers = []
+    seen_handlers = set()  # ← ДОБАВИТЬ
+
+    for ep in endpoints:
+        method = ep.get("method", "GET").upper()
+        path = ep.get("path", "/")
+        java_handler = ep.get("handler_name", "unknown")
+        handler_name = _go_handler_name(java_handler)
+
+        handler_key = f"{handler_name}_{method}_{path}"
+        if handler_key in seen_handlers:
+            continue
+        seen_handlers.add(handler_key)
+
+        req_type = ep.get("request_type", "")
+        resp_type = ep.get("response_type", "")
+        path_params = ep.get("path_params", [])
+        query_params = ep.get("query_params", [])
+        java_class = ep.get("class_name", "")
+
+        # Чистим типы
+        req_type = _clean_java_type(req_type)
+        resp_type = _clean_java_type(resp_type)
+
+        # Определяем, знаем ли мы эти типы
+        req_known = req_type in known_types
+        resp_known = resp_type in known_types
+
+        # Строим тело handler'а
+        body_lines = []
+
+        # Path params
+        for param in path_params:
+            body_lines.append(
+                f'\t{param} := c.Param("{param}")'
+            )
+            body_lines.append(
+                f'\t_ = {param} // TODO: use {param}'
+            )
+
+        # Query params
+        for param in query_params:
+            body_lines.append(
+                f'\t{param} := c.Query("{param}")'
+            )
+            body_lines.append(
+                f'\t_ = {param} // TODO: use {param}'
+            )
+
+        # Request body
+        if method in ("POST", "PUT", "PATCH") and req_type:
+            if req_known:
+                body_lines.append(f'\tvar req {req_type}')
+            else:
+                body_lines.append(
+                    '\tvar req map[string]interface{}'
+                )
+            body_lines.append(
+                '\tif err := c.ShouldBindJSON(&req); err != nil {'
+            )
+            body_lines.append(
+                '\t\tc.JSON(http.StatusBadRequest, '
+                'gin.H{"error": err.Error()})'
+            )
+            body_lines.append('\t\treturn')
+            body_lines.append('\t}')
+            body_lines.append('')
+
+        # Business logic placeholder
+        body_lines.append(
+            f'\t// TODO: implement business logic'
+        )
+        body_lines.append(
+            f'\t// Java source: {java_class}.{java_handler}'
+        )
+        body_lines.append('')
+
+        # Response
+        if method == "GET" and path == "/":
+            # Redirect
+            body_lines.append(
+                '\tc.Redirect(http.StatusFound, '
+                '"/swagger-ui/index.html")'
+            )
+        elif resp_known:
+            body_lines.append(f'\tvar response {resp_type}')
+            body_lines.append(
+                '\tc.JSON(http.StatusOK, response)'
+            )
+        else:
+            body_lines.append(
+                '\tc.JSON(http.StatusOK, gin.H{'
+                '"status": "ok", '
+                '"message": "not implemented yet"})'
+            )
+
+        body = '\n'.join(body_lines)
+
+        handler_code = (
+            f'// {handler_name} handles '
+            f'{method} {path}\n'
+            f'// Migrated from: {java_class}.{java_handler}\n'
+            f'func {handler_name}(c *gin.Context) {{\n'
+            f'{body}\n'
+            f'}}'
+        )
+        handlers.append(handler_code)
+
+
+    middleware = (
+        "// ErrorHandlerMiddleware handles panics and returns JSON errors\n"
+        "func ErrorHandlerMiddleware() gin.HandlerFunc {\n"
+        "\treturn func(c *gin.Context) {\n"
+        "\t\tdefer func() {\n"
+        "\t\t\tif err := recover(); err != nil {\n"
+        "\t\t\t\tc.JSON(http.StatusInternalServerError, gin.H{\n"
+        '\t\t\t\t\t"error": "Internal server error",\n'
+        "\t\t\t\t})\n"
+        "\t\t\t\tc.Abort()\n"
+        "\t\t\t}\n"
+        "\t\t}()\n"
+        "\t\tc.Next()\n"
+        "\t}\n"
+        "}"
+    )
+
+    handlers_str = '\n\n'.join(handlers)
+
+    result = (
+        "package main\n"
+        "\n"
+        "import (\n"
+        '\t"net/http"\n'
+        "\n"
+        '\t"github.com/gin-gonic/gin"\n'
+        ")\n"
+        "\n"
+        f"{handlers_str}\n"
+        "\n"
+        f"{middleware}\n"
+    )
+
+    return result
+
+def _clean_java_type(t: str) -> str:
+    """Убирает Java generics и оставляет чистое имя типа."""
+    if not t:
+        return ""
+    # ResponseEntity<List<UserDTO>> → UserDTO
+    clean = t
+    while '<' in clean:
+        inner = clean[clean.index('<') + 1:]
+        if '>' in inner:
+            inner = inner[:inner.rindex('>')]
+        clean = inner
+    clean = clean.split('.')[-1].strip()
+    clean = clean.replace("[]", "")
+    # Убираем Java wrapper types
+    skip = {
+        "ResponseEntity", "List", "Set", "Map",
+        "Optional", "Collection", "void", "Void",
+        "String", "Object",
+    }
+    if clean in skip:
+        return ""
+    return clean
 
 
 async def _generate_handlers_via_llm(
@@ -200,10 +378,18 @@ def _go_handler_name(java_name: str) -> str:
 def _generate_router(endpoints: list) -> str:
     """Генерирует router.go детерминистически."""
     routes = []
+    seen_routes = set()  # ← дедупликация
+
     for ep in endpoints:
         method = ep.get("method", "GET")
         path = ep.get("path", "/")
         handler = _go_handler_name(ep.get("handler_name", "default"))
+
+        route_key = f"{method}_{path}"
+        if route_key in seen_routes:
+            continue
+        seen_routes.add(route_key)
+
         routes.append(f'\tr.{method}("{path}", {handler})')
 
     routes_str = "\n".join(routes)
@@ -214,20 +400,15 @@ import (
 \t"github.com/gin-gonic/gin"
 )
 
-// SetupRouter configures all routes and middleware
 func SetupRouter() *gin.Engine {{
 \tr := gin.Default()
-
-\t// Middleware
 \tr.Use(gin.Logger())
 \tr.Use(gin.Recovery())
 \tr.Use(CORSMiddleware())
 \tr.Use(ErrorHandlerMiddleware())
 
-\t// API routes
 {routes_str}
 
-\t// Health check
 \tr.GET("/health", func(c *gin.Context) {{
 \t\tc.JSON(200, gin.H{{"status": "ok"}})
 \t}})
@@ -235,18 +416,15 @@ func SetupRouter() *gin.Engine {{
 \treturn r
 }}
 
-// CORSMiddleware handles Cross-Origin Resource Sharing
 func CORSMiddleware() gin.HandlerFunc {{
 \treturn func(c *gin.Context) {{
 \t\tc.Header("Access-Control-Allow-Origin", "*")
 \t\tc.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 \t\tc.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
 \t\tif c.Request.Method == "OPTIONS" {{
 \t\t\tc.AbortWithStatus(204)
 \t\t\treturn
 \t\t}}
-
 \t\tc.Next()
 \t}}
 }}

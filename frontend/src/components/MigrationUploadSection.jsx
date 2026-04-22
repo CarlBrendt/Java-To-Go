@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const ALLOWED_ARCHIVE_TYPE = ".zip";
 const API_BASE = "/api/v1/minio";
 const POLL_INTERVAL_MS = 5000;
 const DEFAULT_LLM_MODEL = "mws-gpt-alpha";
+const MIGRATION_SESSION_STORAGE_KEY = "migration_upload_session_v1";
 
 const LLM_OPTIONS = [
   {
@@ -97,6 +98,12 @@ function extractFilename(response, fallbackName) {
   return fallbackName;
 }
 
+function formatFileSize(bytes) {
+  const size = Number(bytes);
+  if (!Number.isFinite(size) || size <= 0) return "";
+  return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+}
+
 function normalizeStatusPayload(data) {
   const status = String(data?.status || "").toLowerCase();
   const phase = String(data?.migration?.phase || "").toLowerCase();
@@ -136,14 +143,15 @@ function MigrationUploadSection() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isDragActive, setIsDragActive] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [, setErrorMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const [downloadUrl, setDownloadUrl] = useState("");
   const [downloadName, setDownloadName] = useState("migrated-service.zip");
-  const [, setMigrationStatus] = useState("");
+  const [migrationStatus, setMigrationStatus] = useState("");
   const [pipelineStep, setPipelineStep] = useState("idle");
   const [failedStep, setFailedStep] = useState("");
   const [selectedModel, setSelectedModel] = useState(DEFAULT_LLM_MODEL);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
+  const [activeSessionMeta, setActiveSessionMeta] = useState(null);
   const abortControllerRef = useRef(null);
   const pollRef = useRef(null);
   const userIdRef = useRef(null);
@@ -151,9 +159,11 @@ function MigrationUploadSection() {
 
   const selectedFileSize = useMemo(() => {
     if (!selectedFile) return "";
-    const sizeInMb = selectedFile.size / (1024 * 1024);
-    return `${sizeInMb.toFixed(2)} MB`;
+    return formatFileSize(selectedFile.size);
   }, [selectedFile]);
+  const displayFileName = selectedFile?.name || activeSessionMeta?.fileName || "";
+  const displayFileSize = selectedFileSize || formatFileSize(activeSessionMeta?.fileSize);
+  const hasActiveSession = Boolean(selectedFile || activeSessionMeta);
 
   const activePipelineStepId =
     pipelineStep === "failed" ? failedStep : pipelineStep;
@@ -194,6 +204,16 @@ function MigrationUploadSection() {
     }
   };
 
+  const saveMigrationSession = useCallback((session) => {
+    localStorage.setItem(MIGRATION_SESSION_STORAGE_KEY, JSON.stringify(session));
+    setActiveSessionMeta(session);
+  }, []);
+
+  const clearMigrationSession = useCallback(() => {
+    localStorage.removeItem(MIGRATION_SESSION_STORAGE_KEY);
+    setActiveSessionMeta(null);
+  }, []);
+
   const setPipelineState = (step) => {
     setFailedStep("");
     setPipelineStep(step);
@@ -209,11 +229,13 @@ function MigrationUploadSection() {
     document.body.removeChild(anchor);
   };
 
-  const markPipelineAsFailed = (fallbackStep = "upload") => {
-    const stepToMark = pipelineStep === "idle" ? fallbackStep : pipelineStep;
-    setFailedStep(stepToMark);
-    setPipelineStep("failed");
-  };
+  const markPipelineAsFailed = useCallback((fallbackStep = "upload") => {
+    setPipelineStep((prevStep) => {
+      const stepToMark = prevStep === "idle" ? fallbackStep : prevStep;
+      setFailedStep(stepToMark);
+      return "failed";
+    });
+  }, []);
 
   const getStepStatus = (stepId) => {
     const currentStepId = pipelineStep === "failed" ? failedStep : pipelineStep;
@@ -226,57 +248,70 @@ function MigrationUploadSection() {
     return "pending";
   };
 
-  const startPolling = (userId) => {
+  const checkMigrationStatus = useCallback(async (userId) => {
+    const res = await fetch(`${API_BASE}/migrate/status?user_id=${userId}`);
+    const data = await res.json();
+    const normalized = normalizeStatusPayload(data);
+
+    if (normalized.isCompleted) {
+      stopPolling();
+      setPipelineState("packaging");
+
+      const downloadEndpoint = resolveDownloadEndpoint(normalized.downloadUrl, userId);
+      const zipRes = await fetch(downloadEndpoint);
+
+      if (!zipRes.ok) {
+        throw new Error(`Download failed: ${zipRes.status}`);
+      }
+
+      const blob = await zipRes.blob();
+      const url = URL.createObjectURL(blob);
+
+      setDownloadUrl(url);
+      setDownloadName(extractFilename(zipRes, `${userId}.zip`));
+      setMigrationStatus("Архив готов к скачиванию.");
+      setPipelineState("completed");
+      setIsUploading(false);
+      return;
+    }
+
+    if (normalized.isFailed) {
+      stopPolling();
+      setErrorMessage(normalized.message || "Ошибка миграции.");
+      setMigrationStatus("");
+      markPipelineAsFailed("migrating");
+      setIsUploading(false);
+      clearMigrationSession();
+      return;
+    }
+
+    const phaseInfo = normalized.phase ? ` (phase: ${normalized.phase})` : "";
+    const filesInfo =
+      normalized.filesCount > 0 ? ` Файлов: ${normalized.filesCount}.` : "";
+    setPipelineState(normalized.pipelineStep);
+    setMigrationStatus(
+      normalized.message
+        ? `${normalized.message}${phaseInfo}${filesInfo}`
+        : `Статус: ${normalized.status || "in_progress"}${phaseInfo}.${filesInfo}`,
+    );
+  }, [clearMigrationSession, markPipelineAsFailed]);
+
+  const startPolling = useCallback((userId) => {
     stopPolling();
 
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await fetch(`${API_BASE}/migrate/status?user_id=${userId}`);
-        const data = await res.json();
-        const normalized = normalizeStatusPayload(data);
+    checkMigrationStatus(userId).catch((err) => {
+      console.error("Poll error:", err);
+      stopPolling();
+      setErrorMessage(
+        "Не удалось получить статус миграции. Попробуйте снова.",
+      );
+      setMigrationStatus("");
+      markPipelineAsFailed("migrating");
+      setIsUploading(false);
+    });
 
-        if (normalized.isCompleted) {
-          stopPolling();
-          setPipelineState("packaging");
-
-          const downloadEndpoint = resolveDownloadEndpoint(
-            normalized.downloadUrl,
-            userId,
-          );
-          const zipRes = await fetch(downloadEndpoint);
-
-          if (!zipRes.ok) {
-            throw new Error(`Download failed: ${zipRes.status}`);
-          }
-
-          const blob = await zipRes.blob();
-          const url = URL.createObjectURL(blob);
-
-          setDownloadUrl(url);
-          setDownloadName(extractFilename(zipRes, `${userId}.zip`));
-          setPipelineState("completed");
-          setIsUploading(false);
-        } else if (normalized.isFailed) {
-          stopPolling();
-          setErrorMessage(normalized.message || "Ошибка миграции.");
-          markPipelineAsFailed("migrating");
-          setIsUploading(false);
-        } else {
-          const phaseInfo = normalized.phase
-            ? ` (phase: ${normalized.phase})`
-            : "";
-          const filesInfo =
-            normalized.filesCount > 0
-              ? ` Файлов: ${normalized.filesCount}.`
-              : "";
-          setPipelineState(normalized.pipelineStep);
-          setMigrationStatus(
-            normalized.message
-              ? `${normalized.message}${phaseInfo}${filesInfo}`
-              : `Статус: ${normalized.status || "in_progress"}${phaseInfo}.${filesInfo}`,
-          );
-        }
-      } catch (err) {
+    pollRef.current = setInterval(() => {
+      checkMigrationStatus(userId).catch((err) => {
         console.error("Poll error:", err);
         stopPolling();
         setErrorMessage(
@@ -285,9 +320,9 @@ function MigrationUploadSection() {
         setMigrationStatus("");
         markPipelineAsFailed("migrating");
         setIsUploading(false);
-      }
+      });
     }, POLL_INTERVAL_MS);
-  };
+  }, [checkMigrationStatus, markPipelineAsFailed]);
 
   const handleZipValidation = (file) => {
     if (!file) return;
@@ -308,6 +343,7 @@ function MigrationUploadSection() {
     setPipelineStep("idle");
     setFailedStep("");
     userIdRef.current = null;
+    clearMigrationSession();
   };
 
   const handleInputChange = (event) => {
@@ -350,6 +386,7 @@ function MigrationUploadSection() {
     setPipelineStep("idle");
     setFailedStep("");
     setIsModelMenuOpen(false);
+    clearMigrationSession();
   };
 
   const handleStartMigration = async ({ isRetry = false } = {}) => {
@@ -373,6 +410,12 @@ function MigrationUploadSection() {
     setMigrationStatus("Загружаем файл...");
     setPipelineState("upload");
     setIsUploading(true);
+    saveMigrationSession({
+      userId,
+      fileName: selectedFile.name,
+      fileSize: selectedFile.size,
+      selectedModel,
+    });
 
     try {
       const formData = new FormData();
@@ -420,6 +463,7 @@ function MigrationUploadSection() {
       setMigrationStatus("");
       markPipelineAsFailed("upload");
       setIsUploading(false);
+      clearMigrationSession();
     }
   };
 
@@ -431,6 +475,28 @@ function MigrationUploadSection() {
     },
     [downloadUrl],
   );
+
+  useEffect(() => {
+    const rawSession = localStorage.getItem(MIGRATION_SESSION_STORAGE_KEY);
+    if (!rawSession) return;
+
+    try {
+      const session = JSON.parse(rawSession);
+      if (!session?.userId) {
+        clearMigrationSession();
+        return;
+      }
+
+      userIdRef.current = session.userId;
+      setActiveSessionMeta(session);
+      setPipelineState("queued");
+      setMigrationStatus("Восстановили сессию. Получаем актуальный статус...");
+      setIsUploading(true);
+      startPolling(session.userId);
+    } catch {
+      clearMigrationSession();
+    }
+  }, [clearMigrationSession, startPolling]);
 
   useEffect(() => {
     if (!isModelMenuOpen) return undefined;
@@ -510,7 +576,7 @@ function MigrationUploadSection() {
             </div>
           </label>
 
-          {!selectedFile ? (
+          {!hasActiveSession ? (
             <label
               className={`mc-dropzone ${isDragActive ? "mc-dropzone--active" : ""}`}
               onDragOver={(event) => {
@@ -538,7 +604,8 @@ function MigrationUploadSection() {
             <div className="mc-hud">
               <aside className="mc-status-panel" aria-label="Статусы пайплайна">
                 <p className="mc-file__name">
-                  Имя файла: {selectedFile.name} ({selectedFileSize})
+                  Имя файла: {displayFileName}
+                  {displayFileSize ? ` (${displayFileSize})` : ""}
                 </p>
                 <ul className="mc-status-list">
                   {ORBIT_STEPS.map((step) => {
@@ -562,7 +629,9 @@ function MigrationUploadSection() {
 
               <div className="mc-orbit">
                 <div className="mc-orbit__shell">
-                  <div className="mc-ring">
+                  <div
+                    className={`mc-ring ${pipelineStep === "completed" ? "mc-ring--static" : ""}`}
+                  >
                     <svg
                       className="mc-ring__svg"
                       viewBox="0 0 460 460"
@@ -714,6 +783,14 @@ function MigrationUploadSection() {
               </div>
             </div>
           )}
+          {errorMessage ? (
+            <p className="mc-message mc-message--error" role="alert">
+              {errorMessage}
+            </p>
+          ) : null}
+          {migrationStatus ? (
+            <p className="mc-message mc-message--status">{migrationStatus}</p>
+          ) : null}
         </div>
       </div>
     </section>

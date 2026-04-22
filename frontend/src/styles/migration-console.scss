@@ -503,6 +503,13 @@
   filter: drop-shadow(0 0 10px rgba(248, 113, 113, 0.85));
 }
 
+.mc-ring--static .mc-ring__ticks,
+.mc-ring--static .mc-ring__dashes-2,
+.mc-ring--static .mc-ring__arc,
+.mc-ring--static .mc-ring__arc-orange {
+  animation: none;
+}
+
 .mc-ring__inner-circ-1 {
   fill: none;
   stroke: rgba(248, 113, 113, 0.08);

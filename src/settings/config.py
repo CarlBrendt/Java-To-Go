@@ -14,12 +14,11 @@ class APISettings(BaseSettings):
     secret_key:str
     model_api:str="placeholder"
     model_api_key:str
-    model_name:str="mws-gpt-alpha"
+    model_name:str="gpt-oss-120b"
     temperature:float=0.0
 
     mws_gpt_base_url:str
     mws_gpt_timeout_sec:float=120.0
-    mws_gpt_max_tokens:int|None=4096
 
     minio_endpoint:str
     minio_access_key:str

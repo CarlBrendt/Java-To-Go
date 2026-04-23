@@ -29,8 +29,6 @@ def build_mws_chat_llm(
         "temperature":settings.temperature,
         "timeout":settings.mws_gpt_timeout_sec,
     }
-    if settings.mws_gpt_max_tokens is not None:
-        kwargs["max_tokens"]=settings.mws_gpt_max_tokens
 
     return ChatOpenAI(**kwargs)
 

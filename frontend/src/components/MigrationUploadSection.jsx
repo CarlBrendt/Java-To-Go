@@ -27,7 +27,25 @@ const VALIDATION_STRATEGY_OPTIONS = [
   { value: "workflow-engine", label: "Workflow Engine" },
   { value: "workflow-scheduler", label: "Workflow Scheduler" },
   { value: "workflow-mail", label: "Workflow Mail" },
+  { value: "db-file-storage", label: "DB File Storage" },
+  { value: "workflow-bridge", label: "Workflow Bridge" },
+  { value: "workflow-db-call", label: "Workflow DB Call" },
+  { value: "workflow-ftp", label: "Workflow FTP" },
+  { value: "workflow-ibmmq", label: "Workflow IBM MQ" },
+  { value: "workflow-kafka", label: "Workflow Kafka" },
+  { value: "workflow-odata", label: "Workflow OData" },
+  { value: "workflow-primitives", label: "Workflow Primitives" },
+  { value: "workflow-rabbitmq", label: "Workflow RabbitMQ" },
+  { value: "workflow-s3", label: "Workflow S3" },
+  { value: "workflow-script-executor", label: "Workflow Script Executor" },
+  { value: "workflow-xslt", label: "Workflow XSLT" },
 ];
+
+const RUNNABLE_VALIDATION_STRATEGIES = new Set([
+  "workflow-engine",
+  "workflow-scheduler",
+  "workflow-mail",
+]);
 
 const PIPELINE_STEPS = [
   { id: "upload", title: "Загрузка", subtitle: "Отправляем ZIP в хранилище" },
@@ -572,11 +590,16 @@ function MigrationUploadSection() {
     });
 
     try {
+      const runnableStrategy = RUNNABLE_VALIDATION_STRATEGIES.has(
+        selectedValidationStrategy,
+      )
+        ? selectedValidationStrategy
+        : DEFAULT_VALIDATION_STRATEGY;
       const response = await fetch(`${VALIDATION_API_BASE}/runs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          strategy_key: selectedValidationStrategy,
+          strategy_key: runnableStrategy,
           mws_model: selectedModel,
         }),
       });

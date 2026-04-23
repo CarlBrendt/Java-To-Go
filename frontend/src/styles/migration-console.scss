@@ -366,6 +366,7 @@
 
 .mc-validation__targets {
   display: inline-flex;
+  flex-wrap: wrap;
   width: fit-content;
   max-width: 100%;
   border-radius: 999px;

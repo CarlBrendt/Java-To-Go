@@ -7,10 +7,37 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WorkflowMailParityTest {
 
     private static final String VALIDATE_CONSUMER_PATH = "/api/v1/consumer/validate";
+
+    @Test
+    void javaService_shouldReturnJsonForConsumerValidation() throws IOException, InterruptedException {
+        assumeParityEnabled();
+        WorkflowMailClient javaClient = javaClient();
+
+        JsonNode body = TestDataSupport.readJson("TestData/case2/empty-config.json");
+        HttpResponseData response = javaClient.postJson(VALIDATE_CONSUMER_PATH, body);
+
+        assertEquals(200, response.statusCode(), "Java service should accept consumer validation request");
+        assertTrue(response.body().isObject(), "Java service should return JSON object");
+        assertTrue(response.body().has("errors"), "Java service response should contain errors field");
+    }
+
+    @Test
+    void goService_shouldReturnJsonForConsumerValidation() throws IOException, InterruptedException {
+        assumeParityEnabled();
+        WorkflowMailClient goClient = goClient();
+
+        JsonNode body = TestDataSupport.readJson("TestData/case2/empty-config.json");
+        HttpResponseData response = goClient.postJson(VALIDATE_CONSUMER_PATH, body);
+
+        assertEquals(200, response.statusCode(), "Go service should accept consumer validation request");
+        assertTrue(response.body().isObject(), "Go service should return JSON object");
+        assertTrue(response.body().has("errors"), "Go service response should contain errors field");
+    }
 
     @Test
     void validMailConsumerConfig_shouldMatchBetweenJavaAndGo() throws IOException, InterruptedException {

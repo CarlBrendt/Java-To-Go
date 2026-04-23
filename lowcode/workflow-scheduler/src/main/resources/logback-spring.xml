@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+	<springProperty scope="context" name="otelServiceName"
+		source="app.opentelemetry-service-name" />
+	<appender name="logstash"
+		class="ch.qos.logback.core.ConsoleAppender">
+		<encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+		<lineSeparator>WINDOWS</lineSeparator>
+			<providers>
+				<timestamp/>
+				<mdc/>
+				<message/>
+				<pattern>
+					<omitEmptyFields>true</omitEmptyFields>
+					<pattern>
+						{
+						"level": "%level",
+						"otelServiceName": "${otelServiceName}",
+						"thread": "%thread",
+						"logger": "%logger{40}"
+						}
+					</pattern>
+				</pattern>
+				<stackTrace>
+					<fieldName>stackTrace</fieldName>
+					<throwableConverter
+						class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+						<maxDepthPerThrowable>30</maxDepthPerThrowable>
+						<maxLength>2048</maxLength>
+						<shortenedClassNameLength>20</shortenedClassNameLength>
+						<exclude>^sun\.reflect\..*\.invoke</exclude>
+						<exclude>^net\.sf\.cglib\.proxy\.MethodProxy\.invoke</exclude>
+						<rootCauseFirst>true</rootCauseFirst>
+					</throwableConverter>
+				</stackTrace>
+			</providers>
+		</encoder>
+	</appender>
+
+	<appender name="consoleAppender"
+		class="ch.qos.logback.core.ConsoleAppender">
+		<encoder>
+			<pattern>%d %-5p [%X{traceId:-}] [%X{spanId:-}] [%t] [%c:%L] %m%n</pattern>
+		</encoder>
+	</appender>
+
+	<springProfile name="local,testing">
+		<root level="info">
+			<appender-ref ref="consoleAppender" />
+		</root>
+	</springProfile>
+
+	<springProfile name="default">
+		<root level="info">
+			<appender-ref ref="logstash" />
+		</root>
+	</springProfile>
+
+
+	<logger name="org.zalando.logbook" level="trace" additivity="true" />
+
+	<!-- 	<logger name="io.temporal" level="trace" additivity="true"/> -->
+	<!-- 	<logger name="io.temporal" level="info" additivity="true"/> -->
+	<!-- 	<logger name="io.micrometer" level="trace"/> -->
+<!--	 	<logger name="org.springframework" level="trace" additivity="true"/> -->
+<!--	 	<logger name="org.springframework.vault" level="trace" additivity="true"/> -->
+<!--	 	<logger name="ru.mts.workflowscheduler.service" level="trace" additivity="true"/> -->
+<!--	 	<logger name="org.hibernate.type.descriptor.sql" level="trace" additivity="true"/> -->
+<!--	 	<logger name="org.springframework" level="debug" additivity="true"/> -->
+<!--	 	<logger name="org.springframework.orm" level="debug" additivity="true"/> -->
+	<!--    <logger name="org.apache.coyote.http11.Http11InputBuffer" level="debug"	additivity="true"/> -->
+	<!--    <logger name="org.springframework.security" level="trace" additivity="true"/> -->
+
+</configuration>

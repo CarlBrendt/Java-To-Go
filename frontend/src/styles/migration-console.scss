@@ -317,6 +317,20 @@
   color: #fda4af;
 }
 
+.mc-message {
+  margin: 0;
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.mc-message--status {
+  color: #7dd3fc;
+}
+
+.mc-message--error {
+  color: #fda4af;
+}
+
 .mc-validation {
   margin-top: 4px;
   border-radius: 20px;
@@ -348,6 +362,39 @@
   margin: 0;
   font-size: 1rem;
   color: #fff1f2;
+}
+
+.mc-validation__targets {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 999px;
+  border: 1px solid rgba(248, 113, 113, 0.24);
+  background: rgba(10, 2, 4, 0.48);
+  padding: 3px;
+  gap: 3px;
+}
+
+.mc-validation__target {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(254, 205, 211, 0.72);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 8px 12px;
+  white-space: nowrap;
+}
+
+.mc-validation__target--active {
+  background: rgba(248, 113, 113, 0.2);
+  color: #fff1f2;
+}
+
+.mc-validation__target:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .mc-validation__grid {
@@ -572,6 +619,13 @@
   animation: mc-ring-arc-spin-orange 6s ease-in-out infinite;
   transform-origin: 230px 230px;
   filter: drop-shadow(0 0 10px rgba(248, 113, 113, 0.85));
+}
+
+.mc-ring--static .mc-ring__ticks,
+.mc-ring--static .mc-ring__dashes-2,
+.mc-ring--static .mc-ring__arc,
+.mc-ring--static .mc-ring__arc-orange {
+  animation: none;
 }
 
 .mc-ring__inner-circ-1 {
@@ -1026,6 +1080,15 @@
 
   .mc-validation__head .mc-btn {
     width: 100%;
+  }
+
+  .mc-validation__targets {
+    width: 100%;
+  }
+
+  .mc-validation__target {
+    flex: 1;
+    white-space: normal;
   }
 
   .mc-validation__grid {

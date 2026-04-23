@@ -30,7 +30,7 @@ class MigrationGraphState(TypedDict, total=False):
     generated_handlers_code: str
 
     consolidation_fixes: List[str]
-    
+
     # ── All generated code ──
     generated_go_code: Dict[str, str]
 
@@ -46,6 +46,11 @@ class MigrationGraphState(TypedDict, total=False):
 
     # ── Stage 8: Reporting ──
     report_generated: bool
+
+    # ── Lint Results (для обратной связи) ──
+    lint_issues: List[Dict[str, Any]]
+    llm_syntax_fixes: List[str]
+    lint_fixes_applied: List[str]
 
     # ── Meta ──
     status: Annotated[str, add]

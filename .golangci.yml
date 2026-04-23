@@ -1,0 +1,60 @@
+# .golangci.yml
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+  allow-parallel-runners: true
+  # Не выходим при первой ошибке
+  issues-exit-code: 0
+
+linters:
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - gosimple
+    - ineffassign
+    - typecheck
+    - gofmt
+    - goimports
+  disable-all: true
+
+linters-settings:
+  govet:
+    enable:
+      - shadow
+      - printf
+  gofmt:
+    simplify: true
+  goimports:
+    local-prefixes: github.com/
+
+issues:
+  # Не блокируем сборку из-за ошибок в сгенерированном коде
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+  exclude-rules:
+    # Игнорируем неопределённые типы (они будут сгенерированы pre-lint)
+    - path: '.*\.go'
+      linters:
+        - typecheck
+      text: "undefined:"
+
+    # Игнорируем отсутствие комментариев
+    - path: '.*\.go'
+      linters:
+        - revive
+      text: "should have comment"
+
+    # Игнорируем длинные функции в сгенерированном коде
+    - path: '.*\.go'
+      linters:
+        - funlen
+        - gocyclo
+
+output:
+  formats:
+    - format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true

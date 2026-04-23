@@ -1254,214 +1254,81 @@ def _detect_needed_imports(body: str) -> Set[str]:
 # PHASE 9: Финальная очистка
 # ═══════════════════════════════════════════════════
 
+# src/copilot/nodes/consolidation_node.py — добавляем в _phase_final_cleanup
+
 def _phase_final_cleanup(
     code: Dict[str, str],
 ) -> Tuple[Dict[str, str], List[str]]:
-    """
-    Финальная чистка:
-    1. Удаление пустых файлов
-    2. Удаление лишних пустых строк
-    3. Проверка баланса скобок
-    4. Удаление Java-артефактов
-    5. Фикс struct tags
-    """
+    """Финальная чистка — улучшенная версия."""
     fixes = []
 
-    # ── Удаляем пустые файлы ──
-    empty_files = [
-        fname for fname, content in code.items()
-        if fname.endswith(".go")
-        and not content.strip()
-        or (
-            fname.endswith(".go")
-            and re.fullmatch(
-                r'\s*package\s+\w+\s*', content.strip()
-            )
-        )
-    ]
-    for fname in empty_files:
-        del code[fname]
-        fixes.append(f"[consolidate] Removed empty file: {fname}")
-
-    # ── Чистка каждого файла ──
     for fname, content in code.items():
         if not fname.endswith(".go"):
             continue
 
         original = content
 
-        # 1. Удаляем Java-аннотации, которые могли просочиться
+        # ── НОВОЕ: Чистим Java массивы Object[] → []interface{} ──
+        # Object[] → []interface{}
+        content = re.sub(r'\bObject\s*\[\s*\]', '[]interface{}', content)
+        # String[] → []string
+        content = re.sub(r'\bString\s*\[\s*\]', '[]string', content)
+        # int[] → []int
+        content = re.sub(r'\bint\s*\[\s*\]', '[]int', content)
+        # long[] → []int64
+        content = re.sub(r'\blong\s*\[\s*\]', '[]int64', content)
+        # byte[] → []byte
+        content = re.sub(r'\bbyte\s*\[\s*\]', '[]byte', content)
+
+        # ── НОВОЕ: Чистим Java generics с массивами ──
+        # List<Object> → []interface{}
+        content = re.sub(r'\bList\s*<\s*Object\s*>', '[]interface{}', content)
+        # List<String> → []string
+        content = re.sub(r'\bList\s*<\s*String\s*>', '[]string', content)
+        # List<Integer> → []int
+        content = re.sub(r'\bList\s*<\s*Integer\s*>', '[]int', content)
+        # List<Long> → []int64
+        content = re.sub(r'\bList\s*<\s*Long\s*>', '[]int64', content)
+
+        # ── НОВОЕ: Чистим поля типа Object (без массива) ──
+        # поле Object → interface{}
         content = re.sub(
-            r'@\w+(?:\([^)]*\))?\s*\n', '\n', content
+            r'(\s+)(\w+)\s+Object\s+`',
+            r'\1\2 interface{} `',
+            content
         )
 
-        # 2. Удаляем .class
+        # ── НОВОЕ: Чистим MessageArgs Object[] → MessageArgs []interface{} ──
+        content = re.sub(
+            r'(\w+)\s+Object\s*\[\s*\]',
+            r'\1 []interface{}',
+            content
+        )
+
+        # ── Существующие чистки ──
+        # Удаляем Java-аннотации
+        content = re.sub(r'@\w+(?:\([^)]*\))?\s*\n', '\n', content)
         content = content.replace('.class', '')
 
-        # 3. Фиксим множественные пустые строки
-        content = re.sub(r'\n{4,}', '\n\n\n', content)
+        # Фикс struct tags
+        content = re.sub(r'`([^`]+)`\s+`([^`]+)`', r'`\1 \2`', content)
 
-        # 4. Фиксим struct tags: `json:"name"` `validate:"required"`
-        #    → `json:"name" validate:"required"`
-        content = re.sub(
-            r'`([^`]+)`\s+`([^`]+)`', r'`\1 \2`', content
-        )
-
-        # 5. Фиксим незакрытые struct tags
-        lines = content.split('\n')
-        fixed_lines = []
-        for line in lines:
-            stripped = line.rstrip()
-            if stripped.count('`') == 1 and stripped.endswith('"'):
-                line = stripped + '`'
-            fixed_lines.append(line)
-        content = '\n'.join(fixed_lines)
-
-        # 6. Убираем Java generics, которые могли просочиться
+        # Java generics
         content = re.sub(r'\bOptional<(\w+)>', r'*\1', content)
-        content = re.sub(
-            r'\bList<(\w+)>',
-            lambda m: '[]' + JAVA_TO_GO_TYPE.get(
-                m.group(1), m.group(1)
-            ),
-            content,
-        )
-        content = re.sub(
-            r'\bMap<(\w+),\s*(\w+)>',
-            lambda m: (
-                f'map[{JAVA_TO_GO_TYPE.get(m.group(1), m.group(1))}]'
-                f'{JAVA_TO_GO_TYPE.get(m.group(2), m.group(2))}'
-            ),
-            content,
-        )
-        content = re.sub(
-            r'\bSet<(\w+)>',
-            lambda m: '[]' + JAVA_TO_GO_TYPE.get(
-                m.group(1), m.group(1)
-            ),
-            content,
-        )
-        content = re.sub(
-            r'\bResponseEntity<(\w+)>', r'\1', content
-        )
+        content = re.sub(r'\bResponseEntity<(\w+)>', r'\1', content)
 
-        # 7. *error → error
+        # uuid.UUID → string
+        content = re.sub(r'\buuid\.UUID\b', 'string', content)
+
+        # *error → error
         content = re.sub(r'\*error\b', 'error', content)
 
-        # 8. uuid.UUID → string
-        content = re.sub(r'\buuid\.UUID\b', 'string', content)
-        content = re.sub(
-            r'\buuid\.New\(\)',
-            '"" // TODO: generate UUID',
-            content,
-        )
-
-        # 8.5. Фикс "missing return" — функции с // implementation
-        lines = content.split('\n')
-        fixed_lines = []
-        for i, line in enumerate(lines):
-            s = line.strip()
-            if s in ('// implementation', '// TODO: implement'):
-                func_sig = ""
-                for j in range(i - 1, max(i - 5, -1), -1):
-                    if lines[j].strip().startswith('func '):
-                        func_sig = lines[j].strip()
-                        break
-                return_stub = _generate_return_stub(func_sig)
-                if return_stub:
-                    fixed_lines.append(line)
-                    fixed_lines.append(f'\t{return_stub}')
-                    continue
-            fixed_lines.append(line)
-        content = '\n'.join(fixed_lines)
-
-        lines = content.split('\n')
-        fixed_lines = []
-        comma_fixes = 0
-        in_composite = 0
-
-        for i, line in enumerate(lines):
-            stripped = line.rstrip()
-            s = stripped.strip()
-
-            # Отслеживаем вход в composite literal
-            if '{' in s:
-                control_keywords = (
-                    'func ', 'if ', 'for ', 'switch ',
-                    'select ', 'defer ', 'go ', 'else ',
-                    'return ', 'case ',
-                )
-                is_control = any(
-                    s.startswith(kw) or s.lstrip().startswith(kw)
-                    for kw in control_keywords
-                )
-                if not is_control:
-                    in_composite += s.count('{')
-
-            if '}' in s and in_composite > 0:
-                in_composite -= s.count('}')
-                if in_composite < 0:
-                    in_composite = 0
-
-            # Запятая ТОЛЬКО внутри composite literal
-            if (
-                in_composite > 0
-                and i + 1 < len(lines)
-                and stripped
-                and not stripped.endswith(',')
-                and not stripped.endswith('{')
-                and not stripped.endswith('(')
-                and not stripped.endswith('/')
-                and not s.startswith('//')
-            ):
-                next_s = lines[i + 1].strip()
-                if (
-                    re.match(r'^[A-Z]\w*\s*:', next_s)
-                    or next_s in ('}', '},', '},)')
-                ):
-                    curr = s
-                    if (
-                        re.match(r'^[A-Z]\w*\s*:.*\S$', curr)
-                        or (curr.endswith(')') and ':' in curr)
-                        or (curr.endswith('"') and ':' in curr)
-                    ):
-                        stripped += ','
-                        comma_fixes += 1
-
-            fixed_lines.append(stripped)
-
-        content = '\n'.join(fixed_lines)
-        if comma_fixes:
-            fixes.append(
-                f"[consolidate] {fname}: added {comma_fixes} "
-                f"missing commas in composite literals"
-            )
-
-        # 10. Баланс скобок — убираем лишние } на top level
-        lines = content.split('\n')
-        depth = 0
-        balanced_lines = []
-        for line in lines:
-            s = line.strip()
-            opens = s.count('{')
-            closes = s.count('}')
-
-            if s == '}' and depth == 0:
-                continue
-
-            depth += opens - closes
-            if depth < 0:
-                depth = 0
-                continue
-
-            balanced_lines.append(line)
-        content = '\n'.join(balanced_lines)
+        # Убираем лишние пустые строки
+        content = re.sub(r'\n{4,}', '\n\n\n', content)
 
         if content != original:
             code[fname] = content
-            fixes.append(
-                f"[consolidate] {fname}: final cleanup applied"
-            )
+            fixes.append(f"{fname}: cleaned Java array syntax")
 
     return code, fixes
 

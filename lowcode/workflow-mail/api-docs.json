@@ -1,0 +1,331 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "OpenAPI definition",
+        "version": "v0"
+    },
+    "servers": [
+        {
+            "url": "http://127.0.0.1:9018",
+            "description": "Generated server url"
+        }
+    ],
+    "paths": {
+        "/api/v1/consumer/workflow-compatibility/validate": {
+            "post": {
+                "tags": [
+                    "Scheduler validation"
+                ],
+                "operationId": "validateStarterCompatibility",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "405": {
+                        "description": "Method Not Allowed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ResCommonError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ResCommonError"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ResCommonError"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ResValidationResult"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "mts-isso": [
+                        ]
+                    }
+                ]
+            }
+        },
+        "/api/v1/consumer/validate": {
+            "post": {
+                "tags": [
+                    "Scheduler validation"
+                ],
+                "operationId": "validateStarterConfig",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ReqMailStarterConfig"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "405": {
+                        "description": "Method Not Allowed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ResCommonError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ResCommonError"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ResCommonError"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ResValidationResult"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "mts-isso": [
+                        ]
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ResCommonError": {
+                "type": "object",
+                "properties": {
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "status": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "error": {
+                        "type": "string"
+                    },
+                    "path": {
+                        "type": "string"
+                    }
+                }
+            },
+            "JsonNode": {
+                "type": "object"
+            },
+            "PropertyViolation": {
+                "type": "object",
+                "properties": {
+                    "propertyRootPath": {
+                        "type": "string"
+                    },
+                    "constraintPath": {
+                        "type": "string"
+                    },
+                    "propertyName": {
+                        "type": "string"
+                    },
+                    "systemMessage": {
+                        "type": "string"
+                    },
+                    "constraintType": {
+                        "type": "string"
+                    },
+                    "details": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "object"
+                        }
+                    }
+                }
+            },
+            "ResErrorContext": {
+                "type": "object",
+                "properties": {
+                    "rejectedValue": {
+                        "type": "object"
+                    }
+                }
+            },
+            "ResErrorDescription": {
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string"
+                    },
+                    "level": {
+                        "type": "string"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "systemMessage": {
+                        "type": "string"
+                    },
+                    "solvingAdviceMessage": {
+                        "type": "string"
+                    },
+                    "solvingAdviceUrl": {
+                        "type": "string"
+                    },
+                    "location": {
+                        "$ref": "#/components/schemas/ResErrorLocation"
+                    },
+                    "context": {
+                        "$ref": "#/components/schemas/ResErrorContext"
+                    },
+                    "scriptContext": {
+                        "$ref": "#/components/schemas/ResScriptErrorContext"
+                    },
+                    "inputValidationContext": {
+                        "$ref": "#/components/schemas/ResInputValidationContext"
+                    }
+                }
+            },
+            "ResErrorLocation": {
+                "type": "object",
+                "properties": {
+                    "fieldPath": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ResInputValidationContext": {
+                "type": "object",
+                "properties": {
+                    "inputValidateSchema": {
+                        "$ref": "#/components/schemas/JsonNode"
+                    },
+                    "validationTarget": {
+                        "$ref": "#/components/schemas/JsonNode"
+                    },
+                    "propertyViolations": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PropertyViolation"
+                        }
+                    }
+                }
+            },
+            "ResScriptErrorContext": {
+                "type": "object",
+                "properties": {
+                    "variableContext": {
+                        "$ref": "#/components/schemas/JsonNode"
+                    },
+                    "wf": {
+                        "$ref": "#/components/schemas/ScriptWorkflowView"
+                    },
+                    "rejectedScript": {
+                        "type": "string"
+                    },
+                    "systemMessage": {
+                        "type": "string"
+                    },
+                    "unknownVariables": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "ResValidationResult": {
+                "type": "object",
+                "properties": {
+                    "errors": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ResErrorDescription"
+                        }
+                    }
+                }
+            },
+            "ScriptWorkflowView": {
+                "type": "object",
+                "properties": {
+                    "businessKey": {
+                        "type": "string"
+                    },
+                    "secrets": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    },
+                    "initVariables": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "$ref": "#/components/schemas/JsonNode"
+                        }
+                    }
+                }
+            },
+            "ReqMailStarterConfig": {
+                "type": "object"
+            }
+        },
+        "securitySchemes": {
+            "mts-isso": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            }
+        }
+    }
+}

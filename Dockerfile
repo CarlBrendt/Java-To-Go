@@ -13,6 +13,7 @@ RUN apt-get update --fix-missing && \
     libicu-dev \
     curl \
     git \
+    wget \
     default-jdk-headless \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -25,7 +26,23 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 ENV GOPATH="/root/go"
 ENV PATH="${GOPATH}/bin:${PATH}"
 
-RUN java -version && go version
+# ── golangci-lint (установка через официальный скрипт) ──
+ENV GOLANGCI_LINT_VERSION=v1.59.1
+RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
+    | sh -s -- -b /usr/local/bin ${GOLANGCI_LINT_VERSION}
+
+# ── goimports (дополнительный инструмент) ──
+RUN go install golang.org/x/tools/cmd/goimports@latest
+
+# ── gofumpt (более строгое форматирование) ──
+RUN go install mvdan.cc/gofumpt@latest
+
+# Проверяем установку
+RUN java -version && \
+    go version && \
+    golangci-lint --version && \
+    goimports -h 2>&1 | head -1 && \
+    gofumpt -h 2>&1 | head -1
 
 # ── Python зависимости ──
 COPY pyproject.toml .
@@ -39,8 +56,12 @@ COPY java-tools ./java-tools
 COPY main.py .
 COPY src ./src
 COPY entrypoint.sh .
+COPY .golangci.yml .
 
 RUN sed -i 's/\r$//' ./entrypoint.sh && \
     chmod +x ./entrypoint.sh
+
+# Создаём директорию для кэша линтера
+RUN mkdir -p /tmp/golangci-lint-cache
 
 CMD ["/app/entrypoint.sh"]

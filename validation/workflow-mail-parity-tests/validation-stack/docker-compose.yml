@@ -1,0 +1,27 @@
+services:
+  workflow-mail-java:
+    build:
+      context: ../../..
+      dockerfile: validation/workflow-mail-parity-tests/validation-stack/workflow-mail-java.Dockerfile
+    container_name: workflow-mail-java
+    environment:
+      SERVER_PORT: 9018
+      SECURITY_ENABLED: "false"
+      OAUTH2_CLIENT_SECRET: local
+    ports:
+      - "9018:9018"
+
+  parity-tests:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: workflow-mail-parity-tests
+    depends_on:
+      - workflow-mail-java
+    command:
+      - mvn
+      - -Dmaven.repo.local=/tmp/.m2
+      - -Dparity.enabled=true
+      - -Dparity.java.base-url=http://workflow-mail-java:9018
+      - -Dparity.go.base-url=http://workflow-mail-go:8080
+      - test

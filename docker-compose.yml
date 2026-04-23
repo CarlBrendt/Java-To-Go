@@ -46,8 +46,10 @@ services:
       - GIT_TERMINAL_PROMPT=0
       - GOPATH=/root/go
       - VALIDATION_ORCHESTRATOR_BASE_URL=http://validation-orchestrator:8095
+      - GOLANGCI_LINT_CACHE=/tmp/golangci-lint-cache  # Добавляем кэш для линтера
     volumes:
       - go-cache:/root/go
+      - golangci-cache:/tmp/golangci-lint-cache  # Кэш для golangci-lint
     depends_on:
       validation-orchestrator:
         condition: service_started
@@ -59,6 +61,21 @@ services:
       - app-network
     restart: unless-stopped
     command: ["./entrypoint.sh"]
+
+  golangci-lint:
+    image: golangci/golangci-lint:v1.59.1-alpine
+    container_name: golangci_lint
+    volumes:
+      - ./output:/workspace  # Монтируем директорию с сгенерированным Go кодом
+      - ./.golangci.yml:/workspace/.golangci.yml:ro  # Монтируем конфиг
+      - golangci-cache:/root/.cache/golangci-lint  # Кэш для ускорения
+    working_dir: /workspace
+    networks:
+      - app-network
+    # Не запускаем постоянно, а только по запросу
+    profiles:
+      - lint  # Опциональный профиль для отдельного запуска
+    command: ["golangci-lint", "run", "--help"]  # Дефолтная команда
 
   minio:
     image: minio/minio:latest
@@ -105,3 +122,4 @@ networks:
 volumes:
   minio-storage:
   go-cache:
+  golangci-cache:

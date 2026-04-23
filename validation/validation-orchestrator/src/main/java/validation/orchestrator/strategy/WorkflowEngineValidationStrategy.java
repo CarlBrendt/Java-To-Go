@@ -17,7 +17,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -42,14 +44,12 @@ public class WorkflowEngineValidationStrategy implements ValidationStrategy {
     private static final Duration MIGRATION_POLL_INTERVAL = Duration.ofSeconds(5);
     private static final Duration GO_HEALTH_TIMEOUT = Duration.ofSeconds(90);
     private static final Duration GO_HEALTH_POLL_INTERVAL = Duration.ofSeconds(2);
-    private static final String GO_CONTAINER_NAME = "workflow-engine-go";
-    private static final String REFERENCE_PROJECT_KEY = "workflow-engine";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public String key() {
-        return REFERENCE_PROJECT_KEY;
+        return referenceProjectKey();
     }
 
     @Override
@@ -122,7 +122,7 @@ public class WorkflowEngineValidationStrategy implements ValidationStrategy {
             );
 
             CommandResult upResult = runCommand(List.of(
-                "docker", "compose", "-f", context.composeFile().toString(), "up", "-d", "workflow-engine-java"
+                "docker", "compose", "-f", validationComposeFile(context).toString(), "up", "-d", referenceJavaServiceName()
             ));
             if (upResult.exitCode() != 0) {
                 failRun(run, "starting_reference_runtime", trimSummary(upResult));
@@ -175,7 +175,7 @@ public class WorkflowEngineValidationStrategy implements ValidationStrategy {
 
             cleanupGoContainer();
 
-            String goImageTag = "workflow-engine-go:" + run.validationRunId();
+            String goImageTag = goImageName() + ":" + run.validationRunId();
             CommandResult buildResult = runCommand(List.of(
                 "docker", "build", "-t", goImageTag, extractedRoot.toString()
             ));
@@ -199,9 +199,9 @@ public class WorkflowEngineValidationStrategy implements ValidationStrategy {
 
             CommandResult runResult = runCommand(List.of(
                 "docker", "run", "-d",
-                "--name", GO_CONTAINER_NAME,
+                "--name", goContainerName(),
                 "--network", context.validationNetwork(),
-                "--network-alias", GO_CONTAINER_NAME,
+                "--network-alias", goContainerName(),
                 "-e", "PORT=8080",
                 goImageTag
             ));
@@ -229,9 +229,10 @@ public class WorkflowEngineValidationStrategy implements ValidationStrategy {
                 null
             );
 
-            CommandResult testResult = runCommand(List.of(
-                "docker", "compose", "-f", context.composeFile().toString(), "up", "--build", "parity-tests"
-            ));
+            CommandResult testResult = runCommand(
+                List.of("docker", "compose", "-f", validationComposeFile(context).toString(), "up", "--build", "parity-tests"),
+                parityTestEnvironment()
+            );
 
             TestSummary summary = parseTestSummary(testResult);
             if (testResult.exitCode() == 0) {
@@ -268,7 +269,7 @@ public class WorkflowEngineValidationStrategy implements ValidationStrategy {
     }
 
     private Path resolveReferenceProjectRoot(Path repoRoot) {
-        Path referenceProjectRoot = repoRoot.resolve("lowcode").resolve(REFERENCE_PROJECT_KEY).normalize();
+        Path referenceProjectRoot = repoRoot.resolve("lowcode").resolve(referenceProjectKey()).normalize();
         if (!Files.exists(referenceProjectRoot)) {
             throw new IllegalStateException("Reference project is not available: " + referenceProjectRoot);
         }
@@ -462,7 +463,7 @@ public class WorkflowEngineValidationStrategy implements ValidationStrategy {
             CommandResult inspectResult = runCommand(List.of(
                 "docker", "inspect",
                 "--format", "{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}",
-                GO_CONTAINER_NAME
+                goContainerName()
             ));
 
             if (inspectResult.exitCode() != 0) {
@@ -474,19 +475,19 @@ public class WorkflowEngineValidationStrategy implements ValidationStrategy {
                 return null;
             }
             if ("exited".equals(health) || "dead".equals(health)) {
-                CommandResult logsResult = runCommand(List.of("docker", "logs", GO_CONTAINER_NAME));
+                CommandResult logsResult = runCommand(List.of("docker", "logs", goContainerName()));
                 return "Go runtime failed to start: " + trimSummary(logsResult);
             }
 
             Thread.sleep(GO_HEALTH_POLL_INTERVAL.toMillis());
         }
 
-        CommandResult logsResult = runCommand(List.of("docker", "logs", GO_CONTAINER_NAME));
+        CommandResult logsResult = runCommand(List.of("docker", "logs", goContainerName()));
         return "Go runtime healthcheck timed out: " + trimSummary(logsResult);
     }
 
     private void cleanupGoContainer() throws IOException, InterruptedException {
-        runCommand(List.of("docker", "rm", "-f", GO_CONTAINER_NAME));
+        runCommand(List.of("docker", "rm", "-f", goContainerName()));
     }
 
     private void recreateDirectory(Path path) throws IOException {
@@ -524,7 +525,12 @@ public class WorkflowEngineValidationStrategy implements ValidationStrategy {
     }
 
     private CommandResult runCommand(List<String> command) throws IOException, InterruptedException {
+        return runCommand(command, Map.of());
+    }
+
+    private CommandResult runCommand(List<String> command, Map<String, String> environment) throws IOException, InterruptedException {
         ProcessBuilder processBuilder = new ProcessBuilder(command);
+        processBuilder.environment().putAll(environment);
         processBuilder.redirectErrorStream(true);
         Process process = processBuilder.start();
 
@@ -599,5 +605,45 @@ public class WorkflowEngineValidationStrategy implements ValidationStrategy {
         return HttpClient.newBuilder()
             .connectTimeout(HTTP_TIMEOUT)
             .build();
+    }
+
+    protected String referenceProjectKey() {
+        return "workflow-engine";
+    }
+
+    protected String referenceJavaServiceName() {
+        return "workflow-engine-java";
+    }
+
+    protected String goContainerName() {
+        return "workflow-engine-go";
+    }
+
+    protected String goImageName() {
+        return goContainerName();
+    }
+
+    protected String parityJavaBaseUrl() {
+        return "http://workflow-engine-java:9090";
+    }
+
+    protected String parityGoBaseUrl() {
+        return "http://workflow-engine-go:8080";
+    }
+
+    protected String parityTestSelector() {
+        return "WorkflowEngineParityTest";
+    }
+
+    protected Path validationComposeFile(ValidationExecutionContext context) {
+        return context.composeFile();
+    }
+
+    private Map<String, String> parityTestEnvironment() {
+        Map<String, String> environment = new HashMap<>();
+        environment.put("PARITY_JAVA_BASE_URL", parityJavaBaseUrl());
+        environment.put("PARITY_GO_BASE_URL", parityGoBaseUrl());
+        environment.put("PARITY_TEST_SELECTOR", parityTestSelector());
+        return environment;
     }
 }

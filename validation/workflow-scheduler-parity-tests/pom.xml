@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>ru.mts.ip.validation</groupId>
+    <artifactId>workflow-scheduler-parity-tests</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <name>workflow-scheduler-parity-tests</name>
+
+    <properties>
+        <java.version>17</java.version>
+        <maven.compiler.release>${java.version}</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <junit.jupiter.version>5.12.2</junit.jupiter.version>
+        <jackson.version>2.18.3</jackson.version>
+        <parity.enabled>false</parity.enabled>
+        <parity.java.base-url>http://workflow-scheduler-java:9016</parity.java.base-url>
+        <parity.go.base-url>http://workflow-scheduler-go:8080</parity.go.base-url>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.jupiter.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.2</version>
+                <configuration>
+                    <useModulePath>false</useModulePath>
+                    <systemPropertyVariables>
+                        <parity.enabled>${parity.enabled}</parity.enabled>
+                        <parity.java.base-url>${parity.java.base-url}</parity.java.base-url>
+                        <parity.go.base-url>${parity.go.base-url}</parity.go.base-url>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

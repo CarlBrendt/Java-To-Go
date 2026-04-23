@@ -1,0 +1,6 @@
+{
+  "type": "simple",
+  "simple": {
+    "duration": "PT100S"
+  }
+}

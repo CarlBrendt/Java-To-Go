@@ -1,0 +1,27 @@
+services:
+  workflow-scheduler-java:
+    build:
+      context: ../../..
+      dockerfile: validation/workflow-scheduler-parity-tests/validation-stack/workflow-scheduler-java.Dockerfile
+    container_name: workflow-scheduler-java
+    environment:
+      SERVER_PORT: 9016
+      SECURITY_ENABLED: "false"
+      OAUTH2_CLIENT_SECRET: local
+    ports:
+      - "9016:9016"
+
+  parity-tests:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: workflow-scheduler-parity-tests
+    depends_on:
+      - workflow-scheduler-java
+    command:
+      - mvn
+      - -Dmaven.repo.local=/tmp/.m2
+      - -Dparity.enabled=true
+      - -Dparity.java.base-url=http://workflow-scheduler-java:9016
+      - -Dparity.go.base-url=http://workflow-scheduler-go:8080
+      - test

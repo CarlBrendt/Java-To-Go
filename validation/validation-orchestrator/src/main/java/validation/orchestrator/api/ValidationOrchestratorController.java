@@ -29,10 +29,16 @@ public class ValidationOrchestratorController {
     @PostMapping("/runs")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public ValidationRunCreateResponse startRun(@RequestBody(required = false) ValidationRunRequest request) {
-        ValidationRun run = orchestratorService.startRun(
-            request == null ? null : request.validationRunId(),
-            request == null ? null : request.mwsModel()
-        );
+        ValidationRun run;
+        try {
+            run = orchestratorService.startRun(
+                request == null ? null : request.validationRunId(),
+                request == null ? null : request.strategyKey(),
+                request == null ? null : request.mwsModel()
+            );
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
+        }
         return new ValidationRunCreateResponse(
             run.validationRunId(),
             run.resolvedStrategyKey(),

@@ -859,6 +859,16 @@ def _build_markdown_report(
             md.append(td)
         md.append("\n</details>\n")
 
+    lint_fixes = state.get("lint_fixes_applied", [])
+    if lint_fixes:
+        md.append("## 🔧 Linter Auto-fixes\n")
+        md.append(f"`golangci-lint` автоматически исправил {len(lint_fixes)} проблем:\n")
+        for fix in lint_fixes[:15]:
+            md.append(f"- {fix}")
+        if len(lint_fixes) > 15:
+            md.append(f"\n... и ещё {len(lint_fixes) - 15} исправлений")
+        md.append("")
+
     return "\n".join(md)
 
 

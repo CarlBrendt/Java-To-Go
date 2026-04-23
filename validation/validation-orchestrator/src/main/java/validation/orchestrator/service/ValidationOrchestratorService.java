@@ -52,10 +52,18 @@ public class ValidationOrchestratorService {
         }
     }
 
-    public synchronized ValidationRun startRun(String requestedRunId, String mwsModel) {
+    public synchronized ValidationRun startRun(String requestedRunId, String requestedStrategyKey, String mwsModel) {
         Optional<ValidationRun> activeRun = findActiveRun();
         if (activeRun.isPresent()) {
             return activeRun.get();
+        }
+
+        String strategyKey = normalizeBlank(requestedStrategyKey);
+        if (strategyKey == null) {
+            strategyKey = defaultStrategyKey;
+        }
+        if (!strategies.containsKey(strategyKey)) {
+            throw new IllegalArgumentException("Validation strategy is not registered: " + strategyKey);
         }
 
         String runId = requestedRunId == null || requestedRunId.isBlank()
@@ -65,7 +73,7 @@ public class ValidationOrchestratorService {
             runId,
             null,
             Instant.now().toString(),
-            defaultStrategyKey,
+            strategyKey,
             normalizeBlank(mwsModel)
         );
         runs.put(runId, run);

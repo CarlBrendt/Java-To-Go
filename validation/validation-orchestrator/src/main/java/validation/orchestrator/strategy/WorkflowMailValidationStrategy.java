@@ -1,10 +1,42 @@
 package validation.orchestrator.strategy;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import org.springframework.stereotype.Component;
+import validation.orchestrator.model.ValidationRun;
 
 @Component
 public class WorkflowMailValidationStrategy extends WorkflowEngineValidationStrategy {
+    @Override
+    protected Path prepareGoArtifact(ValidationRun run, ValidationExecutionContext context, Path runWorkspace) throws Exception {
+        Path readyArtifact = context.repoRoot()
+            .resolve("lowcode")
+            .resolve(referenceProjectKey() + "-go-ready.zip")
+            .toAbsolutePath()
+            .normalize();
+        if (!Files.exists(readyArtifact)) {
+            throw new IllegalStateException("Ready Go artifact is not available: " + readyArtifact);
+        }
+
+        updateRun(
+            run,
+            "running",
+            "using_ready_go_artifact",
+            null,
+            null,
+            0,
+            0,
+            0,
+            "Using ready Go artifact from lowcode/workflow-mail-go-ready.zip",
+            null
+        );
+
+        Path artifactZip = runWorkspace.resolve("generated-go.zip");
+        Files.copy(readyArtifact, artifactZip, StandardCopyOption.REPLACE_EXISTING);
+        return artifactZip;
+    }
+
     @Override
     protected String referenceProjectKey() {
         return "workflow-mail";

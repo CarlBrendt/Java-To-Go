@@ -81,6 +81,7 @@ const VALIDATION_STAGE_LABELS = {
   preparing_reference_source: "Подготовка Java reference",
   starting_migration: "Запуск миграции",
   waiting_for_go_artifact: "Ожидание Go-артефакта",
+  using_ready_go_artifact: "Готовый Go-артефакт",
   starting_reference_runtime: "Запуск Java reference",
   downloading_go_artifact: "Загрузка Go-артефакта",
   preparing_go_source: "Подготовка Go-кода",

@@ -71,42 +71,7 @@ public class WorkflowEngineValidationStrategy implements ValidationStrategy {
                 null
             );
 
-            Path referenceProjectRoot = resolveReferenceProjectRoot(context.repoRoot());
-            Path referenceArchive = runWorkspace.resolve("reference-java.zip");
-            archiveReferenceProject(referenceProjectRoot, referenceArchive);
-
-            String migrationUserId = "validation_" + run.validationRunId() + "_" + UUID.randomUUID().toString().substring(0, 8);
-            run.assignMigrationUserId(migrationUserId);
-
-            updateRun(
-                run,
-                "running",
-                "starting_migration",
-                null,
-                null,
-                0,
-                0,
-                0,
-                "Uploading Java reference to migration backend",
-                null
-            );
-
-            uploadReferenceArchive(migrationUserId, context.artifactBaseUrl(), referenceArchive, run.mwsModel());
-
-            updateRun(
-                run,
-                "running",
-                "waiting_for_go_artifact",
-                null,
-                null,
-                0,
-                0,
-                0,
-                "Waiting for generated Go artifact",
-                null
-            );
-
-            awaitGeneratedArtifact(migrationUserId, context.artifactBaseUrl());
+            Path artifactZip = prepareGoArtifact(run, context, runWorkspace);
 
             updateRun(
                 run,
@@ -128,22 +93,6 @@ public class WorkflowEngineValidationStrategy implements ValidationStrategy {
                 failRun(run, "starting_reference_runtime", trimSummary(upResult));
                 return;
             }
-
-            updateRun(
-                run,
-                "running",
-                "downloading_go_artifact",
-                null,
-                null,
-                0,
-                0,
-                0,
-                "Downloading generated Go artifact",
-                null
-            );
-
-            Path artifactZip = runWorkspace.resolve("generated-go.zip");
-            downloadGeneratedArtifact(migrationUserId, context.artifactBaseUrl(), artifactZip);
 
             updateRun(
                 run,
@@ -230,12 +179,18 @@ public class WorkflowEngineValidationStrategy implements ValidationStrategy {
             );
 
             CommandResult testResult = runCommand(
-                List.of("docker", "compose", "-f", validationComposeFile(context).toString(), "up", "--build", "parity-tests"),
+                List.of(
+                    "docker", "compose",
+                    "-f", validationComposeFile(context).toString(),
+                    "up",
+                    "--exit-code-from", "parity-tests",
+                    "parity-tests"
+                ),
                 parityTestEnvironment()
             );
 
             TestSummary summary = parseTestSummary(testResult);
-            if (testResult.exitCode() == 0) {
+            if (testResult.exitCode() == 0 && summary.testsFailed() == 0) {
                 updateRun(
                     run,
                     "finished",
@@ -266,6 +221,62 @@ public class WorkflowEngineValidationStrategy implements ValidationStrategy {
         } finally {
             cleanupGoContainer();
         }
+    }
+
+    protected Path prepareGoArtifact(ValidationRun run, ValidationExecutionContext context, Path runWorkspace) throws Exception {
+        Path referenceProjectRoot = resolveReferenceProjectRoot(context.repoRoot());
+        Path referenceArchive = runWorkspace.resolve("reference-java.zip");
+        archiveReferenceProject(referenceProjectRoot, referenceArchive);
+
+        String migrationUserId = "validation_" + run.validationRunId() + "_" + UUID.randomUUID().toString().substring(0, 8);
+        run.assignMigrationUserId(migrationUserId);
+
+        updateRun(
+            run,
+            "running",
+            "starting_migration",
+            null,
+            null,
+            0,
+            0,
+            0,
+            "Uploading Java reference to migration backend",
+            null
+        );
+
+        uploadReferenceArchive(migrationUserId, context.artifactBaseUrl(), referenceArchive, run.mwsModel());
+
+        updateRun(
+            run,
+            "running",
+            "waiting_for_go_artifact",
+            null,
+            null,
+            0,
+            0,
+            0,
+            "Waiting for generated Go artifact",
+            null
+        );
+
+        awaitGeneratedArtifact(migrationUserId, context.artifactBaseUrl());
+
+        updateRun(
+            run,
+            "running",
+            "downloading_go_artifact",
+            null,
+            null,
+            0,
+            0,
+            0,
+            "Downloading generated Go artifact",
+            null
+        );
+
+        Path artifactZip = runWorkspace.resolve("generated-go.zip");
+        downloadGeneratedArtifact(migrationUserId, context.artifactBaseUrl(), artifactZip);
+        return artifactZip;
     }
 
     private Path resolveReferenceProjectRoot(Path repoRoot) {
@@ -450,11 +461,21 @@ public class WorkflowEngineValidationStrategy implements ValidationStrategy {
         if (detectedProjectRoot == null || !Files.exists(detectedProjectRoot)) {
             throw new IllegalStateException("Generated Go ZIP does not contain a project root");
         }
-        if (!Files.exists(detectedProjectRoot.resolve("Dockerfile"))) {
-            throw new IllegalStateException("Generated Go project does not contain Dockerfile");
+        if (Files.exists(detectedProjectRoot.resolve("Dockerfile"))) {
+            return detectedProjectRoot;
         }
 
-        return detectedProjectRoot;
+        if (Files.exists(extractionRoot.resolve("Dockerfile"))) {
+            return extractionRoot;
+        }
+
+        try (var walk = Files.walk(extractionRoot)) {
+            return walk
+                .filter(path -> Files.isRegularFile(path) && "Dockerfile".equals(path.getFileName().toString()))
+                .map(Path::getParent)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Generated Go project does not contain Dockerfile"));
+        }
     }
 
     private String waitForGoHealth() throws IOException, InterruptedException {
@@ -509,7 +530,7 @@ public class WorkflowEngineValidationStrategy implements ValidationStrategy {
         updateRun(run, "failed", stage, "failed", null, 0, 0, 0, summary, Instant.now().toString());
     }
 
-    private void updateRun(
+    protected void updateRun(
         ValidationRun run,
         String status,
         String stage,

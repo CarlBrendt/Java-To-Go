@@ -1265,7 +1265,7 @@ def _phase_final_cleanup(
     for fname, content in code.items():
         if not fname.endswith(".go"):
             continue
-
+        
         original = content
 
         # ── НОВОЕ: Чистим Java массивы Object[] → []interface{} ──

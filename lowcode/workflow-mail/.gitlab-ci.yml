@@ -1,0 +1,4 @@
+include:
+  - project: 'ip/supplemental/ci-templates'
+    ref: master
+    file: '/shared-services/ms.yml'

@@ -1,5 +1,4 @@
 # src/copilot/nodes/syntax_fix_llm_feedback.py
-
 from __future__ import annotations
 
 import logging
@@ -8,9 +7,9 @@ import re
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.copilot.graph_state import MigrationGraphState
+from src.copilot.nodes.linter_node import _fix_unclosed_braces
 from src.services.mws_llm_factory import build_mws_chat_llm
 from src.settings.config import APISettings
-from src.copilot.nodes.linter_node import _fix_unclosed_braces  # ← импорт из linter_node
 
 settings = APISettings()
 logger = logging.getLogger(__name__)
@@ -30,7 +29,6 @@ Original code:
 {{CODE}}
 ```"""
 
-
 async def node_syntax_fix_llm_feedback(state: MigrationGraphState) -> dict:
     """
     Исправляет синтаксис на основе ошибок от golangci-lint.
@@ -44,7 +42,7 @@ async def node_syntax_fix_llm_feedback(state: MigrationGraphState) -> dict:
         return {
             "generated_go_code": generated_code,
             "llm_syntax_fixes": fixes,
-            "lint_issues": [],  # ← очистка
+            "lint_issues": [],
             "status": "llm_syntax_feedback_skipped_no_issues",
             "current_node": "syntax_fix_llm_feedback",
         }
@@ -93,7 +91,7 @@ async def node_syntax_fix_llm_feedback(state: MigrationGraphState) -> dict:
         errors_text = "\n".join(file_issues)
 
         try:
-            prompt = SYSTEM_PROMPT_FEEDBACK.format(ERRORS=errors_text, CODE=original)
+            prompt = SYSTEM_PROMPT_FEEDBACK.replace("{{ERRORS}}", errors_text).replace("{{CODE}}", original)
             messages = [
                 SystemMessage(content="You are a Go syntax correction expert."),
                 HumanMessage(content=prompt),
@@ -107,7 +105,6 @@ async def node_syntax_fix_llm_feedback(state: MigrationGraphState) -> dict:
                 corrected = re.sub(r"^```go\n?", "", corrected)
                 corrected = re.sub(r"\n?```.*$", "", corrected)
 
-            # 🔥 Важно: восстанови недостающие }
             corrected = _fix_unclosed_braces(corrected)
 
             if corrected != original:
@@ -122,7 +119,7 @@ async def node_syntax_fix_llm_feedback(state: MigrationGraphState) -> dict:
     return {
         "generated_go_code": generated_code,
         "llm_syntax_fixes": fixes,
-        "lint_issues": [],  # ← ОБЯЗАТЕЛЬНО очисти, иначе цикл не остановится
+        "lint_issues": [],
         "status": "llm_syntax_feedback_fixed" if fixes else "llm_syntax_feedback_clean",
         "current_node": "syntax_fix_llm_feedback",
     }

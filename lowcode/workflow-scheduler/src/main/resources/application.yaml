@@ -1,0 +1,64 @@
+app:
+  securityEnabled: ${SECURITY_ENABLED:true}
+  opentelemetry-trace-exporter-endpoint: http://${NODE_IP:127.0.0.1}:${TRACING_OTLP_COLLECTOR_PORT:4318}/v1/traces
+  opentelemetry-service-name: ${OPENTELEMETRY_SERVICE_NAME:IP.SharedServices.WorkflowScheduler}
+  opentelemetry-service-version: ${OPENTELEMETRY_SERVICE_VERSION:0.0.1}
+  workflow-wiki-errors-url-pattern: ${WIKI_ERRORS_BASE_PATH:https://confluence.mts.ru/pages/viewpage.action?pageId=1000688910&errorCode={errorCode}}
+  max-variable-size-bytes: ${MAX_VARIABLE_SIZE_BYTES:256000}
+  scheduler-worker-limit-count: ${SCHEDULER_WORKER_LIMIT_COUNT:100}
+
+logbook:
+  predicate:
+    include:
+    - path: /api/**
+
+management:
+  endpoints:
+    web:
+      base-path: ${MANAGEMENT_BASE_PATH:/actuator}
+      path-mapping:
+        prometheus: ${METRICS_PATH:/prometheus}
+      exposure:
+        include:
+        - health
+        - info
+        - prometheus
+
+server:
+  port: ${SERVER_PORT:9016}
+  error:
+    include-message: always
+    include-binding-errors: always
+
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          wf-sap-dev:
+            authorization-grant-type: client_credentials
+            client-id: ${OAUTH2_CLIENT_ID:wf-sap-dev}
+            client-secret: ${OAUTH2_CLIENT_SECRET}
+        provider:
+          wf-sap-dev:
+            token-uri: ${OAUTH2_TOKEN_URI:https://isso-dev.mts.ru/auth/realms/mts/protocol/openid-connect/token}
+      resourceserver:
+        jwt:
+          issuer-uri: ${OAUTH2_ISSUER_URI:https://isso-dev.mts.ru/auth/realms/mts}
+  groovy:
+    template:
+      check-template-location: false
+  cloud:
+    openfeign:
+      oauth2:
+        clientRegistrationId: wf-sap-dev
+        enabled: ${SECURITY_ENABLED:true}
+      client:
+        config:
+          wf-engine-client:
+            url: ${WORKFLOW_ENGINE:http://control-plane-workflow-engine:8080}
+          db-file-storage:
+            url: ${DB_FILE_STORAGE:http://127.0.0.1:9012}
+          wf-script-executor-client:
+            url: ${WORKFLOW_SCRIPT_EXECUTOR:http://control-plane-workflow-script-executor:8080}
+            error-decoder: ru.mts.workflowscheduler.share.script.ScriptExecutionErrorDecoder

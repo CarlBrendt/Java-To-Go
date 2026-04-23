@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>	
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:pro="http://www.liquibase.org/xml/ns/pro"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd
+        http://www.liquibase.org/xml/ns/pro http://www.liquibase.org/xml/ns/pro/liquibase-pro-latest.xsd">
+
+
+    <changeSet  id="init"  author="oiivshin">  
+        <createTable  tableName="definition">
+			<column name="id" type="uuid">
+			    <constraints nullable="false" unique="true" primaryKey="true"/>
+			</column>		
+            <column  name="type"  type="varchar(255)"/>  
+            <column  name="name"  type="varchar(255)"/>  
+            <column  name="tenant_id"  type="varchar(255)"/>
+            <column  name="stand"  type="varchar(255)"/>   
+            <column  name="description"  type="varchar(4000)"/>  
+            <column  name="create_time"  type="datetime"/>  
+            <column  name="ver"  type="int"/>  
+            <column  name="compiled"  type="blob"/>  
+            <column  name="details"  type="blob"/>  
+        </createTable>
+    </changeSet>
+
+    <changeSet  id="add_column_definition_flow_editor_config"  author="oiivshin">  
+        <addColumn tableName="definition">
+            <column name="flow_editor_config" type="blob"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet  id="add_column_definition_status"  author="oiivshin">  
+        <addColumn tableName="definition">
+            <column name="status" type="varchar(255)"/>
+        </addColumn>
+        <update tableName="definition">
+            <column name="status" value="deployed"/>
+        </update>
+        <addUniqueConstraint  columnNames="name, tenant_id, stand, ver, status" constraintName="uk_definition" tableName="definition"/>
+    </changeSet>
+
+    <changeSet  id="add_column_definitio_owner_login_change_time"  author="oiivshin">  
+        <addColumn tableName="definition">
+            <column name="owner_login" type="varchar(255)"/>
+        </addColumn>
+        <addColumn tableName="definition">
+            <column name="change_time" type="datetime"/>
+        </addColumn>
+        <update tableName="definition">
+            <column name="owner_login" value="system"/>
+        </update>
+        <update tableName="definition">
+		    <column name="change_time" valueComputed="create_time" />
+  		</update>
+    </changeSet>
+
+    <changeSet  id="add_column_definition_deleted"  author="oiivshin">  
+        <addColumn tableName="definition">
+            <column name="deleted" type="boolean"/>
+        </addColumn>
+        <update tableName="definition">
+		    <column name="deleted" value="false" />
+  		</update>
+    </changeSet>
+    
+    <changeSet  id="recreate_uk_definition"  author="oiivshin">  
+	    <dropUniqueConstraint  constraintName="uk_definition" tableName="definition"/>
+        <dropColumn columnName="stand" tableName="definition"/>
+		<addUniqueConstraint  columnNames="name, tenant_id, ver, status" constraintName="uk_definition" tableName="definition"/>
+        <update tableName="definition">
+		    <column name="change_time" valueComputed="create_time" />
+			<where>create_time is null</where>
+  		</update>
+    </changeSet>
+    
+    <changeSet  id="add_column_definition_latest"  author="oiivshin">  
+        <addColumn tableName="definition">
+            <column name="latest" type="boolean"/>
+        </addColumn>
+        <update tableName="definition">
+		    <column name="latest" value="false" />
+  		</update>
+    </changeSet>
+    
+    <changeSet  author="oiivshin"  id="latest_version_update__">
+        <sql>
+		<![CDATA[
+			update ${database.defaultSchemaName}.definition set latest = true
+			where id in (
+			  (
+			    select wf.id
+			    from ${database.defaultSchemaName}.definition wf
+			    left join ${database.defaultSchemaName}.definition wf_
+				  on wf.name = wf_.name and wf.tenant_id = wf_.tenant_id and wf.status = wf_.status and wf.ver < wf_.ver 
+			    where wf_.id is null
+			  )
+			);
+		]]>
+        </sql>
+    </changeSet>
+    
+    <changeSet  id="create_table_workflow_access_whitelist"  author="oiivshin">  
+        <createTable  tableName="workflow_access_whitelist">
+            <column  name="workflow_definition_id"  type="uuid"/>  
+            <column  name="group_id"  type="varchar(255)"/>  
+            <column  name="oauth2_user_name"  type="varchar(255)"/>
+        </createTable>
+    </changeSet>
+    
+    <changeSet author="create_pk_table_workflow_access_whitelst" id="addPrimaryKey-example">
+    	<addPrimaryKey tableName="workflow_access_whitelist" columnNames="workflow_definition_id,group_id,oauth2_user_name" constraintName="workflow_access_whitelist_pkey"/>
+	</changeSet>
+	
+	<changeSet  author="oiivshin"  id="rename_column_oauth2_user_name">
+        <renameColumn columnDataType="varchar(255)" newColumnName="oauth2_client_id" oldColumnName="oauth2_user_name" tableName="workflow_access_whitelist"/>
+    </changeSet>
+    
+    <changeSet author="oiivshin" id="drop_workflow_access_whitelst.oauth2_client_id">
+		<dropColumn columnName="group_id" tableName="workflow_access_whitelist"/>
+    </changeSet>
+
+    <changeSet  id="add_column_definition_availability_status"  author="beevood">
+        <addColumn tableName="definition">
+            <column name="availability_status" type="varchar(255)"/>
+        </addColumn>
+        <sql> update ${database.defaultSchemaName}.definition set availability_status = 'active' </sql>
+        <createIndex indexName="ix_definition_availability_status" tableName="definition">
+            <column name="availability_status"/>
+        </createIndex>
+        <addNotNullConstraint tableName="definition" columnName="availability_status"/>
+    </changeSet>
+
+    <!--<changeSet id="replace_spel_to_lua_expression" author="beevood">
+        <sqlFile path="sql/spel_to_lua_expressions.sql" relativeToChangelogFile="true"/>
+    </changeSet>-->
+
+</databaseChangeLog>

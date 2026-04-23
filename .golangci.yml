@@ -33,20 +33,20 @@ issues:
   # Не блокируем сборку из-за ошибок в сгенерированном коде
   max-issues-per-linter: 0
   max-same-issues: 0
-  
+
   exclude-rules:
     # Игнорируем неопределённые типы (они будут сгенерированы pre-lint)
     - path: '.*\.go'
       linters:
         - typecheck
       text: "undefined:"
-    
+
     # Игнорируем отсутствие комментариев
     - path: '.*\.go'
       linters:
         - revive
       text: "should have comment"
-    
+
     # Игнорируем длинные функции в сгенерированном коде
     - path: '.*\.go'
       linters:

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="migrate_kafka_starter_to_engine" author="beevood">
+        <preConditions onFail="CONTINUE">
+            <sqlCheck expectedResult="1">
+                SELECT CASE WHEN '${KAFKA_DB_NAME}' IS NOT NULL AND '${KAFKA_DB_NAME}' != '' AND
+                       '${KAFKA_DB_USERNAME}' IS NOT NULL AND '${KAFKA_DB_USERNAME}' != '' AND
+                       '${KAFKA_DB_SCHEMA}' IS NOT NULL AND '${KAFKA_DB_SCHEMA}' != '' AND
+                       '${KAFKA_DB_PASSWORD}' IS NOT NULL AND '${KAFKA_DB_PASSWORD}' != '' AND
+                       exists (SELECT 1 FROM pg_extension WHERE extname = 'dblink')
+                       THEN 1 ELSE 0 END
+            </sqlCheck>
+        </preConditions>
+        <sqlFile path="sql/kafka_to_engine.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+    <changeSet id="migrate_kafka_starter_to_engine_fix" runOnChange="true" author="beevood">
+        <preConditions onFail="CONTINUE">
+            <sqlCheck expectedResult="1">
+                SELECT CASE WHEN '${KAFKA_DB_NAME}' IS NOT NULL AND '${KAFKA_DB_NAME}' != '' AND
+                       '${KAFKA_DB_USERNAME}' IS NOT NULL AND '${KAFKA_DB_USERNAME}' != '' AND
+                       '${KAFKA_DB_SCHEMA}' IS NOT NULL AND '${KAFKA_DB_SCHEMA}' != '' AND
+                       '${KAFKA_DB_PASSWORD}' IS NOT NULL AND '${KAFKA_DB_PASSWORD}' != '' AND
+                       exists (SELECT 1 FROM pg_extension WHERE extname = 'dblink')
+                       THEN 1 ELSE 0 END
+            </sqlCheck>
+        </preConditions>
+        <sqlFile path="sql/kafka_to_engine_2.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+    <changeSet id="migrate_rabbitmq_starter_to_engine" author="beevood">
+        <preConditions onFail="CONTINUE">
+            <sqlCheck expectedResult="1">
+                SELECT CASE WHEN '${RABBITMQ_DB_NAME}' IS NOT NULL AND '${RABBITMQ_DB_NAME}' != '' AND
+                       '${RABBITMQ_DB_USERNAME}' IS NOT NULL AND '${RABBITMQ_DB_USERNAME}' != '' AND
+                       '${RABBITMQ_DB_SCHEMA}' IS NOT NULL AND '${RABBITMQ_DB_SCHEMA}' != '' AND
+                       '${RABBITMQ_DB_PASSWORD}' IS NOT NULL AND '${RABBITMQ_DB_PASSWORD}' != '' AND
+                       exists (SELECT 1 FROM pg_extension WHERE extname = 'dblink')
+                       THEN 1 ELSE 0 END
+            </sqlCheck>
+        </preConditions>
+        <sqlFile path="sql/rabbitmq_to_engine.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+    <changeSet id="migrate_rabbitmq_starter_to_engine_fix" author="beevood">
+        <preConditions onFail="CONTINUE">
+            <sqlCheck expectedResult="1">
+                SELECT CASE WHEN '${RABBITMQ_DB_NAME}' IS NOT NULL AND '${RABBITMQ_DB_NAME}' != '' AND
+                       '${RABBITMQ_DB_USERNAME}' IS NOT NULL AND '${RABBITMQ_DB_USERNAME}' != '' AND
+                       '${RABBITMQ_DB_SCHEMA}' IS NOT NULL AND '${RABBITMQ_DB_SCHEMA}' != '' AND
+                       '${RABBITMQ_DB_PASSWORD}' IS NOT NULL AND '${RABBITMQ_DB_PASSWORD}' != '' AND
+                       exists (SELECT 1 FROM pg_extension WHERE extname = 'dblink')
+                       THEN 1 ELSE 0 END
+            </sqlCheck>
+        </preConditions>
+        <sqlFile path="sql/rabbitmq_to_engine_2.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+    <changeSet id="migrate_mail_starter_to_engine" author="beevood">
+        <preConditions onFail="CONTINUE">
+            <sqlCheck expectedResult="1">
+                SELECT CASE WHEN '${MAIL_DB_NAME}' IS NOT NULL AND '${MAIL_DB_NAME}' != '' AND
+                       '${MAIL_DB_USERNAME}' IS NOT NULL AND '${MAIL_DB_USERNAME}' != '' AND
+                       '${MAIL_DB_PASSWORD}' IS NOT NULL AND '${MAIL_DB_PASSWORD}' != '' AND
+                       '${MAIL_DB_SCHEMA}' IS NOT NULL AND '${MAIL_DB_SCHEMA}' != '' AND
+                       exists (SELECT 1 FROM pg_extension WHERE extname = 'dblink')
+                       THEN 1 ELSE 0 END
+            </sqlCheck>
+        </preConditions>
+        <sqlFile path="sql/mail_to_engine.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+    <changeSet id="migrate_scheduler_starter_to_engine" author="beevood">
+        <preConditions onFail="CONTINUE">
+            <sqlCheck expectedResult="1">
+                SELECT CASE WHEN '${SCHEDULER_DB_NAME}' IS NOT NULL AND '${SCHEDULER_DB_NAME}' != '' AND
+                       '${SCHEDULER_DB_USERNAME}' IS NOT NULL AND '${SCHEDULER_DB_USERNAME}' != '' AND
+                       '${SCHEDULER_DB_PASSWORD}' IS NOT NULL AND '${SCHEDULER_DB_PASSWORD}' != '' AND
+                       '${SCHEDULER_DB_SCHEMA}' IS NOT NULL AND '${SCHEDULER_DB_SCHEMA}' != '' AND
+                       exists (SELECT 1 FROM pg_extension WHERE extname = 'dblink')
+                       THEN 1 ELSE 0 END
+            </sqlCheck>
+        </preConditions>
+        <sqlFile path="sql/scheduler_to_engine.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+
+
+</databaseChangeLog>

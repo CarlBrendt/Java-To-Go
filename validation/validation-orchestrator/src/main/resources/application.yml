@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: validation-orchestrator
+
+server:
+  port: 8095
+
+orchestrator:
+  repo-root: ""
+  compose-file: ""
+  default-strategy: workflow-engine
+  artifact-base-url: http://server:8585
+  workspace-root: ""
+  validation-network: validation-stack_default

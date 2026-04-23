@@ -1,0 +1,2329 @@
+{
+	"definitions": [
+		{
+			"name": "testLoopWorkflow",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b627",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "inc",
+				"activities": [
+					{
+						"id": "inc",
+						"type": "inject",
+						"injectData": {
+							"i": "spel{#i+1}"
+						},
+						"transition": "switch"
+					},
+					{
+						"id": "switch",
+						"type": "switch",
+						"dataConditions": [
+							{
+								"condition": "spel{#i == 5}",
+								"transition": "complete"
+							}
+						],
+						"defaultCondition": {
+							"transition": "inc"
+						}
+					},
+					{
+						"id": "complete",
+						"type": "workflow_call",
+						"workflowCall": {
+							"args": {
+								"val": "complete"
+							},
+							"workflowRef": {
+								"name": "empty"
+							}
+						}
+					}
+				]
+			}
+		},
+		{
+			"name": "testEventWorkflow",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b628",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "await_for_name",
+				"activities": [
+					{
+						"id": "await_for_name",
+						"type": "workflow_call",
+						"workflowCall": { 
+							"workflowDef": {
+							    "type": "await_for_message",
+								"details":{
+									"awaitForMessageConfig": {
+										"messageName": "name_received"
+									}
+								}
+							}				
+						},
+						"transition": "Flow_0"
+					},
+					{
+						"id": "Flow_0",
+						"type": "switch",
+						"dataConditions": [
+							{
+								"condition": "spel{#name == 'exit'}",
+								"transition": "exit"
+							}
+						],
+						"defaultCondition": {
+							"transition": "say_hello"
+						}
+					},
+					{
+						"id": "say_hello",
+						"type": "workflow_call",
+						"workflowCall": {
+							"args": {
+								"var": "spel{'hello ' + #name + '!'}"
+							},
+							"workflowRef": {
+								"name": "empty"
+							}
+						},
+						"transition": "await_for_name"
+					},
+					{
+						"id": "exit",
+						"type": "inject"
+					}
+				]
+			}
+		},
+		{
+			"name": "test0PluntDecompile",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b629",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "0",
+				"workflow_calls": null,
+				"activities": [
+					{
+						"id": "0",
+						"description": "inject_100",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": {
+							"var3": [
+								0,
+								1
+							],
+							"var2": {
+								"n": "n"
+							},
+							"var1": "var1"
+						},
+						"transition": null,
+						"outputFilter": {
+							"i": "spel{100}"
+						},
+						"dataConditions": null,
+						"defaultCondition": null
+					}
+				]
+			}
+		},
+		{
+			"name": "test1PluntDecompile",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b630",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "act_0",
+				"workflow_calls": null,
+				"activities": [
+					{
+						"id": "act_0",
+						"description": "act_0",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "If_0",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "If_0",
+						"description": null,
+						"type": "switch",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": [
+							{
+								"id": "If_0",
+								"condition": null,
+								"conditionDescription": "name == exit",
+								"successFlowDescription": "exit",
+								"transition": "act_1",
+								"breakFlow": false
+							}
+						],
+						"defaultCondition": {
+							"id": "Flow_0",
+							"condition": null,
+							"conditionDescription": null,
+							"successFlowDescription": "нет",
+							"transition": "act_3",
+							"breakFlow": false
+						}
+					},
+					{
+						"id": "act_1",
+						"description": "act_1",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "act_2",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "act_2",
+						"description": "act_2",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "act_4",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "act_3",
+						"description": "act_3",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "act_4",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "act_4",
+						"description": "act_4",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					}
+				]
+			}
+		},
+		{
+			"name": "test2PluntDecompile",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b631",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "If_0",
+				"workflow_calls": null,
+				"activities": [
+					{
+						"id": "If_0",
+						"description": null,
+						"type": "switch",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": [
+							{
+								"id": "If_0",
+								"condition": null,
+								"conditionDescription": "name == exit",
+								"successFlowDescription": "exit",
+								"transition": "act_0",
+								"breakFlow": false
+							}
+						],
+						"defaultCondition": {
+							"id": "Flow_0",
+							"condition": null,
+							"conditionDescription": null,
+							"successFlowDescription": "нет",
+							"transition": "act_1",
+							"breakFlow": false
+						}
+					},
+					{
+						"id": "act_0",
+						"description": "act_0",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "act_1",
+						"description": "act_1",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					}
+				]
+			}
+		},
+		{
+			"name": "test16PluntDecompile",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b632",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "act_0",
+				"activities": [
+					{
+						"id": "act_0",
+						"description": "act_0",
+						"transition": "If_0",
+						"type": "inject"
+					},
+					{
+						"id": "If_0",
+						"type": "switch",
+						"dataConditions": [
+							{
+								"id": "If_0",
+								"condition": null,
+								"conditionDescription": "name == exit",
+								"successFlowDescription": "exit",
+								"transition": "act_1"
+							}
+						],
+						"defaultCondition": {
+							"id": "Flow_0",
+							"condition": null,
+							"conditionDescription": null,
+							"successFlowDescription": "нет",
+							"transition": "act_4"
+						}
+					},
+					{
+						"id": "act_1",
+						"description": "act_1",
+						"transition": "act_2",
+						"type": "inject"
+					},
+					{
+						"id": "act_2",
+						"description": "act_2",
+						"transition": "act_4",
+						"type": "inject"
+					},
+					{
+						"id": "act_4",
+						"description": "act_4",
+						"type": "inject"
+					}
+				]
+			}
+		},
+		{
+			"name": "test3PluntDecompile",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b633",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "If_0",
+				"workflow_calls": null,
+				"activities": [
+					{
+						"id": "If_0",
+						"description": null,
+						"type": "switch",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": [
+							{
+								"id": "If_0",
+								"condition": null,
+								"conditionDescription": "name == exit",
+								"successFlowDescription": "exit",
+								"transition": "act_0",
+								"breakFlow": false
+							}
+						],
+						"defaultCondition": {
+							"id": "Flow_0",
+							"condition": null,
+							"conditionDescription": null,
+							"successFlowDescription": "нет",
+							"transition": "act_1",
+							"breakFlow": false
+						}
+					},
+					{
+						"id": "act_0",
+						"description": "act_0",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "If_1",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "act_1",
+						"description": "act_1",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "If_1",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "If_1",
+						"description": null,
+						"type": "switch",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": [
+							{
+								"id": "If_1",
+								"condition": null,
+								"conditionDescription": "name == exit",
+								"successFlowDescription": "exit",
+								"transition": "act_2",
+								"breakFlow": false
+							}
+						],
+						"defaultCondition": {
+							"id": "Flow_2",
+							"condition": null,
+							"conditionDescription": null,
+							"successFlowDescription": "нет",
+							"transition": "act_3",
+							"breakFlow": false
+						}
+					},
+					{
+						"id": "act_2",
+						"description": "act_2",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "act_3",
+						"description": "act_3",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					}
+				]
+			}
+		},
+		{
+			"name": "test4PluntDecompile",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b634",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "If_0",
+				"workflow_calls": null,
+				"activities": [
+					{
+						"id": "If_0",
+						"description": null,
+						"type": "switch",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": [
+							{
+								"id": "If_0",
+								"condition": null,
+								"conditionDescription": "name == exit",
+								"successFlowDescription": "exit",
+								"transition": "act_4",
+								"breakFlow": false
+							}
+						],
+						"defaultCondition": {
+							"id": "Flow_2",
+							"condition": null,
+							"conditionDescription": null,
+							"successFlowDescription": "нет",
+							"transition": "act_1",
+							"breakFlow": false
+						}
+					},
+					{
+						"id": "act_4",
+						"description": "act_4",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "If_1",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "If_1",
+						"description": null,
+						"type": "switch",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": [
+							{
+								"id": "If_1",
+								"condition": null,
+								"conditionDescription": "name == exit",
+								"successFlowDescription": "exit",
+								"transition": "act_2",
+								"breakFlow": false
+							}
+						],
+						"defaultCondition": {
+							"id": "Flow_0",
+							"condition": null,
+							"conditionDescription": null,
+							"successFlowDescription": "нет",
+							"transition": "act_3",
+							"breakFlow": false
+						}
+					},
+					{
+						"id": "act_2",
+						"description": "act_2",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "act_5",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "act_3",
+						"description": "act_3",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "act_5",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "act_5",
+						"description": "act_5",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "act_1",
+						"description": "act_1",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					}
+				]
+			}
+		},
+		{
+			"name": "test5PluntDecompile",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b635",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "If_0",
+				"workflow_calls": null,
+				"activities": [
+					{
+						"id": "If_0",
+						"description": null,
+						"type": "switch",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": [
+							{
+								"id": "If_0",
+								"condition": null,
+								"conditionDescription": "name == exit",
+								"successFlowDescription": "exit",
+								"transition": null,
+								"breakFlow": true
+							}
+						],
+						"defaultCondition": {
+							"id": "Flow_0",
+							"condition": null,
+							"conditionDescription": null,
+							"successFlowDescription": "нет",
+							"transition": "act_0",
+							"breakFlow": false
+						}
+					},
+					{
+						"id": "act_0",
+						"description": "act_0",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "If_0",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					}
+				]
+			}
+		},
+		{
+			"name": "test6PluntDecompile",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b636",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "act_0",
+				"workflow_calls": null,
+				"activities": [
+					{
+						"id": "act_0",
+						"description": "act_0",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "act_3",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "act_3",
+						"description": "act_3",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "If_0",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "If_0",
+						"description": null,
+						"type": "switch",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": [
+							{
+								"id": "If_0",
+								"condition": null,
+								"conditionDescription": "name == exit",
+								"successFlowDescription": "exit",
+								"transition": "act_2",
+								"breakFlow": true
+							}
+						],
+						"defaultCondition": {
+							"id": "Flow_0",
+							"condition": null,
+							"conditionDescription": null,
+							"successFlowDescription": "нет",
+							"transition": "act_1",
+							"breakFlow": false
+						}
+					},
+					{
+						"id": "act_1",
+						"description": "act_1",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "act_3",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "act_2",
+						"description": "act_2",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					}
+				]
+			}
+		},
+		{
+			"name": "test7PluntDecompile",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b637",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "If_0",
+				"workflow_calls": null,
+				"activities": [
+					{
+						"id": "If_0",
+						"description": null,
+						"type": "switch",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": [
+							{
+								"id": "If_0",
+								"condition": null,
+								"conditionDescription": "name == exit",
+								"successFlowDescription": "exit",
+								"transition": "act_1",
+								"breakFlow": true
+							}
+						],
+						"defaultCondition": {
+							"id": "Flow_0",
+							"condition": null,
+							"conditionDescription": null,
+							"successFlowDescription": "нет",
+							"transition": "act_0",
+							"breakFlow": false
+						}
+					},
+					{
+						"id": "act_1",
+						"description": "act_1",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "act_0",
+						"description": "act_0",
+						"type": "inject",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "If_0",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					}
+				]
+			}
+		},
+		{
+			"name": "test12PluntDecompile",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b638",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "if_0",
+				"workflow_calls": null,
+				"activities": [
+					{
+						"id": "if_0",
+						"description": null,
+						"type": "switch",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": [
+							{
+								"id": "if_0",
+								"condition": "spel{'EXIT'.equals(#result.get(0).get('type'))}",
+								"conditionDescription": "завершить процесс?",
+								"successFlowDescription": "да",
+								"transition": null,
+								"breakFlow": false
+							}
+						],
+						"defaultCondition": {
+							"id": "Flow_2",
+							"condition": null,
+							"conditionDescription": null,
+							"successFlowDescription": "нет",
+							"transition": "if_1",
+							"breakFlow": false
+						}
+					},
+					{
+						"id": "if_1",
+						"description": null,
+						"type": "switch",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": [
+							{
+								"id": "if_1",
+								"condition": "spel{'DRINK_VINE'.equals(#result.get(0).get('type'))}",
+								"conditionDescription": "согласованно?",
+								"successFlowDescription": "да",
+								"transition": "call_task_service",
+								"breakFlow": false
+							}
+						],
+						"defaultCondition": {
+							"id": "Flow_0",
+							"condition": null,
+							"conditionDescription": null,
+							"successFlowDescription": "нет",
+							"transition": null,
+							"breakFlow": false
+						}
+					},
+					{
+						"id": "call_task_service",
+						"description": "получить задание",
+						"type": "workflow_call",
+						"workflowCall": {
+							"businnesKey": null,
+							"args": null,
+							"workflowDef": { 
+								"type": "rest_call",
+								"details":{
+									"restCallConfig": {}
+								}
+							}
+						},
+						"injectData": null,
+						"transition": "if_0",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					}
+				]
+			}
+		},
+		{
+			"name": "test13PluntDecompile",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b639",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "e1",
+				"workflow_calls": null,
+				"activities": [
+					{
+						"id": "e1",
+						"description": "e1",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e2",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e2",
+						"description": "e2",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "if_1",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "if_1",
+						"description": null,
+						"type": "switch",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": [
+							{
+								"id": "if_1",
+								"condition": "spel{'DRINK_VINE'.equals(#result.get(0).get('type'))}",
+								"conditionDescription": "согласованно?",
+								"successFlowDescription": "да",
+								"transition": "e7",
+								"breakFlow": false
+							}
+						],
+						"defaultCondition": {
+							"id": "Flow_0",
+							"condition": null,
+							"conditionDescription": null,
+							"successFlowDescription": "нет",
+							"transition": "e9",
+							"breakFlow": false
+						}
+					},
+					{
+						"id": "e7",
+						"description": "e7",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e8",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e8",
+						"description": "e8",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e15",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e9",
+						"description": "e9",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e10",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e10",
+						"description": "e10",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e15",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e15",
+						"description": "e15",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e16",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e16",
+						"description": "e16",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					}
+				]
+			}
+		},
+		{
+			"name": "test14PluntDecompile",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b640",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "e1",
+				"workflow_calls": null,
+				"activities": [
+					{
+						"id": "e1",
+						"description": "e1",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e2",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e2",
+						"description": "e2",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e3",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e3",
+						"description": "e3",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e4",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e4",
+						"description": "e4",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "if_0",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "if_0",
+						"description": null,
+						"type": "switch",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": [
+							{
+								"id": "if_0",
+								"condition": "spel{'EXIT'.equals(#result.get(0).get('type'))}",
+								"conditionDescription": "завершить процесс?",
+								"successFlowDescription": "да",
+								"transition": "e15",
+								"breakFlow": false
+							}
+						],
+						"defaultCondition": {
+							"id": "Flow_2",
+							"condition": null,
+							"conditionDescription": null,
+							"successFlowDescription": "нет",
+							"transition": "e5",
+							"breakFlow": false
+						}
+					},
+					{
+						"id": "e5",
+						"description": "e5",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e6",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e6",
+						"description": "e6",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "if_1",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "if_1",
+						"description": null,
+						"type": "switch",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": [
+							{
+								"id": "if_1",
+								"condition": "spel{'DRINK_VINE'.equals(#result.get(0).get('type'))}",
+								"conditionDescription": "согласованно?",
+								"successFlowDescription": "да",
+								"transition": "e7",
+								"breakFlow": false
+							}
+						],
+						"defaultCondition": {
+							"id": "Flow_0",
+							"condition": null,
+							"conditionDescription": null,
+							"successFlowDescription": "нет",
+							"transition": "e9",
+							"breakFlow": false
+						}
+					},
+					{
+						"id": "e7",
+						"description": "e7",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e8",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e8",
+						"description": "e8",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e11",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e9",
+						"description": "e9",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e10",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e10",
+						"description": "e10",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e11",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e11",
+						"description": "e11",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e12",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e12",
+						"description": "e12",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e13",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e13",
+						"description": "e13",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e14",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e14",
+						"description": "e14",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e3",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e15",
+						"description": "e15",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e16",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e16",
+						"description": "e16",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					}
+				]
+			}
+		},
+		{
+			"name": "test15PluntDecompile",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b641",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "e1",
+				"workflow_calls": null,
+				"activities": [
+					{
+						"id": "e1",
+						"description": "e1",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e2",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e2",
+						"description": "e2",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e3",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e3",
+						"description": "e3",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "if_0",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "if_0",
+						"description": null,
+						"type": "switch",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": [
+							{
+								"id": "if_0",
+								"condition": "spel{'EXIT'.equals(#result.get(0).get('type'))}",
+								"conditionDescription": "y?",
+								"successFlowDescription": "да",
+								"transition": "e4",
+								"breakFlow": false
+							}
+						],
+						"defaultCondition": {
+							"id": "Flow_2",
+							"condition": null,
+							"conditionDescription": null,
+							"successFlowDescription": "нет",
+							"transition": "e7",
+							"breakFlow": false
+						}
+					},
+					{
+						"id": "e4",
+						"description": "e4",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "if_1",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "if_1",
+						"description": null,
+						"type": "switch",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": [
+							{
+								"id": "if_1",
+								"condition": "spel{'DRINK_VINE'.equals(#result.get(0).get('type'))}",
+								"conditionDescription": "y?",
+								"successFlowDescription": "да",
+								"transition": "e5",
+								"breakFlow": false
+							}
+						],
+						"defaultCondition": {
+							"id": "Flow_0",
+							"condition": null,
+							"conditionDescription": null,
+							"successFlowDescription": "нет",
+							"transition": "e6",
+							"breakFlow": false
+						}
+					},
+					{
+						"id": "e5",
+						"description": "e5",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e8",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e6",
+						"description": "e6",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e8",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e7",
+						"description": "e7",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e8",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e8",
+						"description": "e8",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "if_2",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "if_2",
+						"description": null,
+						"type": "switch",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": [
+							{
+								"id": "if_2",
+								"condition": "spel{'DRINK_VINE'.equals(#result.get(0).get('type'))}",
+								"conditionDescription": "завершить процесс?",
+								"successFlowDescription": "да",
+								"transition": "e13",
+								"breakFlow": false
+							}
+						],
+						"defaultCondition": {
+							"id": "Flow_8",
+							"condition": null,
+							"conditionDescription": null,
+							"successFlowDescription": "нет",
+							"transition": "if_3",
+							"breakFlow": false
+						}
+					},
+					{
+						"id": "if_3",
+						"description": null,
+						"type": "switch",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": [
+							{
+								"id": "if_3",
+								"condition": "spel{'DRINK_VINE'.equals(#result.get(0).get('type'))}",
+								"conditionDescription": "согласованно?",
+								"successFlowDescription": "да",
+								"transition": "e9",
+								"breakFlow": false
+							}
+						],
+						"defaultCondition": {
+							"id": "Flow_6",
+							"condition": null,
+							"conditionDescription": null,
+							"successFlowDescription": "нет",
+							"transition": "e11",
+							"breakFlow": false
+						}
+					},
+					{
+						"id": "e9",
+						"description": "e9",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "if_4",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "if_4",
+						"description": null,
+						"type": "switch",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": [
+							{
+								"id": "if_4",
+								"condition": "spel{'DRINK_VINE'.equals(#result.get(0).get('type'))}",
+								"conditionDescription": "name == exit",
+								"successFlowDescription": "exit",
+								"transition": "e3",
+								"breakFlow": false
+							}
+						],
+						"defaultCondition": {
+							"id": "Flow_4",
+							"condition": null,
+							"conditionDescription": null,
+							"successFlowDescription": "нет",
+							"transition": "e10",
+							"breakFlow": false
+						}
+					},
+					{
+						"id": "e10",
+						"description": "e10",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e9",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e11",
+						"description": "e11",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e12",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e12",
+						"description": "e12",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": "e3",
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					},
+					{
+						"id": "e13",
+						"description": "e13",
+						"type": "workflow_call",
+						"workflowCall": null,
+						"injectData": null,
+						"transition": null,
+						"outputFilter": null,
+						"dataConditions": null,
+						"defaultCondition": null
+					}
+				]
+			}
+		},
+		{
+			"name": "testRestCallWorkflow",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b642",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "call_rest_service",
+				"activities": [
+					{
+						"id": "call_rest_service",
+						"type": "workflow_call",
+						"workflowCall": {
+							"workflowDef": 							{ 
+										"type": "rest_call",
+										"details":{
+											"restCallConfig": {}
+										}
+									}
+						},
+						"transition": "exit"
+					},
+					{
+						"id": "exit",
+						"type": "inject"
+					}
+				]
+			}
+		},
+		{
+			"name": "testParallelWorkflow",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b642",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "a0",
+				"activities": [
+					{
+						"id": "a0",
+						"type": "parallel",
+						"completionType": "allOf",
+						"branches": ["pa1", "pa2"]
+					},
+					{
+						"id": "pa1",
+						"type": "inject",
+						"injectData":{
+							"var1": "var1"
+						}
+					},
+					{
+						"id": "pa2",
+						"type": "inject",
+						"injectData":{
+							"var2": "var2"
+						}
+					}
+				]
+			}
+		},
+		{
+			"name": "testParallelWorkflowTimerWinSignal",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b644",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "a0",
+				"activities": [
+					{
+						"id": "a0",
+						"type": "parallel",
+						"completionType": "anyOf",
+						"branches": ["pa1", "pa2"],
+						"transition": "finish"
+					},
+					{
+						"id": "pa1",
+						"type": "timer",
+						"timerDuration": "PT1S",
+						"transition": "after_timer"
+					},
+					{
+						"id": "after_timer",
+						"type": "inject",
+						"injectData": {
+							"timer": "timer"
+						}
+					},
+					{
+						"id": "pa2",
+						"type": "workflow_call",
+						"workflowCall":{ 
+							"workflowDef": {
+								"type": "await_for_message",
+								"details": {
+									"awaitForMessageConfig": {
+										"messageName": "awaitMessageName"
+									}
+								}
+							}
+						}
+					},
+					{
+						"id": "finish",
+						"type": "workflow_call",
+						"workflowCall":{
+							"workflowDef": {
+								"type": "empty"
+							}
+						}
+					}
+				]
+			}
+		},
+		{
+			"name": "testRestCallWorkflow2",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b645",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "a1",
+				"activities": [
+					{
+						"id": "a1",
+						"type": "workflow_call",
+						"workflowCall": {
+							"args": {
+								"templateRef": {"name": "template_0"}
+							},
+							"workflowDef": {
+								"type": "rest_call"
+							}
+						},
+						"transition": "exit"
+					},
+					{
+						"id": "exit",
+						"type": "inject"
+					}
+				]
+			}
+		},	
+		{
+			"name": "empty",
+			"type": "empty"
+		},
+		{
+			"name": "println",
+			"type": "println"
+		},
+		{
+			"name": "call_task_service",
+			"type": "rest_call",
+			"details":{
+				"restCallConfig": {}
+			}
+		},
+		{
+			"name": "validation_test_0",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b646",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "a0",
+				"activities": [
+					{
+						"id": "a0",
+						"type": "inject",
+						"injectData": {
+							"n": {}
+						},
+						"transition": "a1"
+					},
+					{
+						"id": "a1",
+						"type": "inject",
+						"injectData": {
+							"n": "spel{#i+1}"
+						},
+						"transition": "a1"
+					}
+				]
+			}
+		},
+		{
+			"name": "validation_test_1",
+			"type": "empty",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b647",
+			"tenantId": "default",
+			"version":"1",
+			"details":{
+				"inputValidateSchema": {
+					"type": "type",
+					"required": [
+						"i"
+					],
+					"properties": {
+						"i": {
+							"type": "string",
+							"description": "count"
+						}
+					}
+				}
+			}
+		},
+		{
+			"name": "validation_test_2",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b648",
+			"tenantId": "default",
+			"version":"1",
+			"details":{
+				"inputValidateSchema": {
+					"type": "object2",
+					"required": [
+						"i"
+					],
+					"properties": {
+						"i": {
+							"type": "string2",
+							"description": "count"
+						}
+					}
+				}
+			}
+		},
+		{
+			"name": "validation_test_3",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b649",
+			"tenantId": "default",
+			"version":"1",
+			"details":{
+				"inputValidateSchema": {
+					"definitions": {
+						"A": {}
+					},
+					"type": "object",
+					"required": [
+						"i"
+					],
+					"properties": {
+						"i": {
+							"type": "array",
+							"description": "count",
+							"items": {}
+						},
+						"k": {
+							"type": "object",
+							"description": "count2"
+						},
+						"n": {
+							"type": "array",
+							"items": {
+								"type": "object"
+							}
+						},
+						"j": {
+							"type": "array",
+							"items": {
+								"$ref": "object"
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"name": "validation_test_4",
+			"type": "empty",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b650",
+			"tenantId": "default",
+			"version":"1",
+			"details": {
+				"inputValidateSchema": {
+					"definitions": {
+						"A": {},
+						"B": {
+							"type": "object"
+						},
+						"C": {
+							"type": "array"
+						}
+					},
+					"type": "array",
+					"required": [
+						"i"
+					]
+				}
+			}
+		},
+		{
+			"name": "validation_test_5",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b651",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "a0",
+				"activities": [
+					{
+						"id": "a0",
+						"type": "inject",
+						"transition": null
+					},
+					{
+						"id": "a1",
+						"type": "lol",
+						"transition": null
+					},
+					{
+						"id": "a2",
+						"type": "workflow_call",
+						"workflowCall": {"workflowRef": {}},
+						"transition": null
+					},
+					{
+						"id": "a3",
+						"type": "workflow_call",
+						"workflowCall": {},
+						"transition": null
+					},
+					{
+						"id": "a4",
+						"type": "workflow_call",
+						"workflowCall": {},
+						"transition": null
+					}
+				]
+			}
+		},
+		{
+			"name": "validation_test_6",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b652",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "a0",
+				"activities": [
+					{
+						"id": "a0",
+						"type": "workflow_call",
+						"workflowCall": {
+							"workflowRef": {
+								"name": "23",
+								 
+								"version": 0
+							}
+						},
+						"transition": null
+					}
+				]
+			}
+		},
+		{
+			"name": "validation_test_7",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b653",
+			"tenantId": "default",
+			"compiled": {
+				"start": "a0",
+				"activities": [
+					{
+						"id": "a0",
+						"type": "workflow_call",
+						"workflowCall": {
+							"workflowRef": {
+								"name": "0",
+								"tenantId": "0",
+								"version": 0
+							}
+						},
+						"transition": "a1"
+					},
+					{
+						"id": "a1",
+						"type": "switch",
+						"dataConditions": [
+							{
+								"condition": "spel{#a == 1}",
+								"transition": "a2"
+							},
+							{
+								"condition": "spel{#b == 1}",
+								"transition": "a3"
+							}
+						],
+						"defaultCondition": {
+							"transition": null
+						}
+					},
+					{
+						"id": "a2",
+						"type": "workflow_call",
+						"workflowCall": {
+							"workflowRef": {
+								"name": "empty",
+								 
+								"version": 0
+							}
+						},
+						"transition": null
+					},
+					{
+						"id": "a3",
+						"type": "workflow_call",
+						"workflowCall": {
+							"workflowRef": {
+								"name": "empty",
+								 
+								"version": 0
+							}
+						},
+						"transition": null
+					}
+				]
+			}
+		},
+		{
+			"name": "validation_test_8",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b654",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "a0",
+				"activities": [
+					{
+						"id": "a0",
+						"type": "workflow_call",
+						"workflowCall": {
+							"workflowRef": {
+								"name": "1",
+								"tenantId": "1",
+								"version": 0
+							}
+						},
+						"transition": "a1"
+					},
+					{
+						"id": "a1",
+						"type": "switch",
+						"dataConditions": [
+							{
+								"condition": "spel{#a == 1}",
+								"transition": "a2"
+							},
+							{
+								"condition": "spel{#b == 1}",
+								"transition": "a3"
+							}
+						],
+						"defaultCondition": {
+							"transition": null
+						}
+					},
+					{
+						"id": "a2",
+						"type": "workflow_call",
+						"workflowCall": {
+							"workflowRef": {
+								"name": "2",
+								"tenantId": "2",
+								"version": 0
+							}
+						},
+						"transition": null
+					},
+					{
+						"id": "a3",
+						"type": "workflow_call",
+						"workflowCall": {
+							"workflowRef": {
+								"name": "empty",
+								 
+								"version": 0
+							}
+						},
+						"transition": null
+					}
+				]
+			}
+		},
+		{
+			"name": "0",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b655",
+			"tenantId": "default", 
+			"compiled": {
+				"start": "a0",
+				"activities": [
+					{
+						"id": "a0",
+						"type": "workflow_call",
+						"workflowCall": {
+							"workflowRef": {
+								"name": "23",
+								 
+								"version": 0
+							}
+						},
+						"transition": null
+					}
+				]
+			}
+		},
+		{
+			"name": "1",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b656",
+			"tenantId": "1",
+			"details": {
+				"outputValidateSchema": {
+					"required": [
+						"i"
+					],
+					"type": "object",
+					"properties": {
+						"a": {
+							"type": "string"
+						},
+						"b": {
+							"$ref": "#/definitions/B"
+						}
+					},
+					"definitions": {
+						"B": {
+							"type": "object",
+							"properties": {
+								"name": {
+									"type": "string"
+								}
+							}
+						}
+					}
+				}
+			},
+			"compiled": {
+				"start": "a0",
+				"activities": [
+					{
+						"id": "a0",
+						"type": "workflow_call",
+						"workflowCall": {
+							"workflowRef": {
+								"name": "23",
+								 
+								"version": 0
+							}
+						},
+						"transition": null
+					}
+				]
+			}
+		},
+		{
+			"name": "2",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b657",
+			"tenantId": "2",
+			"details": {
+				"inputValidateSchema": {
+					"required": [
+						"i"
+					],
+					"type": "object",
+					"properties": {
+						"a": {
+							"type": "string"
+						},
+						"b": {
+							"$ref": "#/definitions/B"
+						}
+					},
+					"definitions": {
+						"B": {
+							"type": "object",
+							"properties": {
+								"name": {
+									"type": "string"
+								}
+							}
+						}
+					}
+				}
+			}
+			,
+			"compiled": {
+				"start": "a0",
+				"activities": [
+					{
+						"id": "a0",
+						"type": "workflow_call",
+						"workflowCall": {
+							"workflowRef": {
+								"name": "0",
+								"tenantId": "0",
+								"version": 0
+							}
+						},
+						"transition": null
+					}
+				]
+			}
+		},
+		{
+			"name": "testParallelWorkflowSub",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b658",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "a0",
+				"activities": [
+					{
+						"id": "a0",
+						"type": "parallel",
+						"completionType": "allOf",
+						"branches": [
+							"pa1",
+							"pa2"
+						],
+						"transition": "finish"
+					},
+					{
+						"id": "pa1",
+						"type": "workflow_call",
+						"workflowCall": {
+							"workflowRef": {
+								"name": "test_parallel_wf_0"
+							}
+						}
+					},
+					{
+						"id": "pa2",
+						"type": "workflow_call",
+						"workflowCall": {
+							"workflowRef": {
+								"name": "test_parallel_wf_1"
+							}
+						}
+					},
+					{
+						"id": "finish",
+						"type": "workflow_call",
+						"workflowCall": {
+							"workflowDef": {
+								"type": "empty"
+							}
+						}
+					}
+				]
+			}
+		},
+		{
+			"name": "test_parallel_wf_0",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b659",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "a0",
+				"activities": [
+					{
+						"id": "a0",
+						"type": "inject",
+						"injectData": {
+							"test_parallel_wf_0": "T"
+						}
+					}
+				]
+			}
+		},
+		{
+			"name": "test_parallel_wf_1",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b660",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "a0",
+				"activities": [
+					{
+						"id": "a0",
+						"type": "inject",
+						"injectData": {
+							"test_parallel_wf_1": "T"
+						}
+					}
+				]
+			}
+		},
+		{
+			"name": "validate_Schema_test",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b661",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "a0",
+				"activities": [
+					{
+						"id": "a0",
+						"type": "inject",
+						"injectData": {
+							"test_parallel_wf_1": "T"
+						}
+					}
+				]
+			},
+			"details": {
+				"inputValidateSchema": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"type": "object",
+					"properties": {
+						"id": {
+							"type": "string"
+						},
+						"type": {
+							"type": "string"
+						},
+						"injectData": {
+							"type": "object",
+							"properties": {
+								"test_parallel_wf_1": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"test_parallel_wf_1"
+							]
+						}
+					},
+					"required": [
+						"id",
+						"type",
+						"injectData"
+					]
+				}
+			}
+		},
+		{
+			"name": "varScopesTest",
+			"type": "complex",
+			"id": "aac409e4-70c0-4d1f-8a03-5df48371b662",
+			"tenantId": "default",
+			"version":"1",
+			"compiled": {
+				"start": "i0",
+				"activities": [
+					{
+						"id": "i0",
+						"type": "inject",
+						"injectData": {
+							"var0": 0
+						},
+						"transition": "i1"
+					},
+					{
+						"id": "i1",
+						"type": "inject",
+						"injectData": {
+							"var0": 1
+						},
+						"transition": "p0"
+					},
+					{
+						"id": "p0",
+						"type": "parallel",
+						"completionType": "allOf",
+						"branches": [
+							"i2",
+							"i3"
+						]
+					},
+					{
+						"id": "i2",
+						"type": "inject",
+						"injectData": {
+							"var2": 2
+						}
+					},
+					{
+						"id": "i3",
+						"type": "inject",
+						"injectData": {
+							"var3": "jp{i0.var0}"
+						}
+					}					
+				]
+			}
+		}
+	]
+}

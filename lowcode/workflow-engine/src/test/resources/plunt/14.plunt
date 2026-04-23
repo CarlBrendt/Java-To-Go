@@ -1,0 +1,89 @@
+@startuml
+start
+    /'e1'/:e1;
+    /'e2'/:e2;
+    repeat
+        /'e3'/:e3;
+        /'e4'/:e4;
+        /'if_0'/if (завершить процесс?) then (да)
+            break;
+        else (нет)
+            /'e5'/:e5;
+            /'e6'/:e6;
+            /'if_1'/if (согласованно?) then (да)
+                /'e7'/:e7;
+                /'e8'/:e8;
+            else (нет)
+                /'e9'/:e9;
+                /'e10'/:e10;
+            endif
+            /'e11'/:e11;
+            /'e12'/:e12;
+            /'e13'/:e13;
+            /'e14'/:e14;
+        endif
+    repeat while (true)
+    /'e15'/:e15;
+    /'e16'/:e16;
+stop
+@enduml
+/'
+{
+  "activities" : {
+    "e1" : {
+      "type" : "workflow_call"
+    },
+    "e2" : {
+      "type" : "workflow_call"
+    },
+    "e3" : {
+      "type" : "workflow_call"
+    },
+    "e4" : {
+      "type" : "workflow_call"
+    },
+    "if_0" : {
+      "condition" : "spel{'EXIT'.equals(#result.get(0).get('type'))}"
+    },
+    "e5" : {
+      "type" : "workflow_call"
+    },
+    "e6" : {
+      "type" : "workflow_call"
+    },
+    "if_1" : {
+      "condition" : "spel{'DRINK_VINE'.equals(#result.get(0).get('type'))}"
+    },
+    "e7" : {
+      "type" : "workflow_call"
+    },
+    "e8" : {
+      "type" : "workflow_call"
+    },
+    "e9" : {
+      "type" : "workflow_call"
+    },
+    "e10" : {
+      "type" : "workflow_call"
+    },
+    "e11" : {
+      "type" : "workflow_call"
+    },
+    "e12" : {
+      "type" : "workflow_call"
+    },
+    "e13" : {
+      "type" : "workflow_call"
+    },
+    "e14" : {
+      "type" : "workflow_call"
+    },
+    "e15" : {
+      "type" : "workflow_call"
+    },
+    "e16" : {
+      "type" : "workflow_call"
+    }
+  }
+}
+'/

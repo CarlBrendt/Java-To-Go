@@ -5,6 +5,10 @@ build/
 *task_repo.egg-info
 .env
 .venv/
-java-test/
-output/
-lowcode/
+.idea/
+.pycache/
+.validation-runs/
+**/.m2/
+**/target/
+/server
+/validation-orchestrator

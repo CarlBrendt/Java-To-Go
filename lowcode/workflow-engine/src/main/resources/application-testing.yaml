@@ -1,0 +1,2 @@
+app:
+  workflow-wiki-errors-url-pattern: ${WIKI_ERRORS_BASE_PATH:http://wiki-error?errorCode={errorCode}}

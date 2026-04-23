@@ -1,0 +1,81 @@
+@startuml
+start
+    /'if_0'/if (type == DRINK_BEAR) then (exit)
+        /'drink_bear'/:выпить пива;
+    /'if_1'/elseif (type == DRINK_VINE) then 
+        /'drink_vine'/:выпить вина;
+    else (нет)
+        /'go_home'/:пойти домой;
+    endif
+stop
+@enduml
+/'
+{
+    "tenantId": "default",
+    "langVersion": 1,
+    "name": "test_1",
+    "description": "test_1",
+    "type": "complex",
+    "activities": {
+        "call_task_service": {
+            "type": "function",
+            "actions": [
+                {
+                    "workflowRef": {
+                        "name": "rest_call",
+                        "arguments": {
+                            "templateName": "task_service",
+							"body" : {}
+                        }
+                    }
+                }
+            ]
+        }, 
+        "if_0": {
+            "condition": "SpEL{'DRINK_BEAR'.equals(#result.get(0).get('type'))}"
+        }, 
+        "if_1": {
+            "condition": "SpEL{'DRINK_VINE'.equals(#result.get(0).get('type'))}"
+        },
+        "drink_bear": {
+            "type": "function",
+            "actions": [
+                {
+                    "workflowRef": {
+                        "name": "println",
+                        "arguments": {
+                            "var": "drink bear"
+                        }
+                    }
+                }
+            ]
+        },
+        "drink_vine": {
+            "type": "function",
+            "actions": [
+                {
+                    "workflowRef": {
+                        "name": "println",
+                        "arguments": {
+                            "var": "drink vine"
+                        }
+                    }
+                }
+            ]
+        },
+        "go_home": {
+            "type": "function",
+            "actions": [
+                {
+                    "workflowRef": {
+                        "name": "println",
+                        "arguments": {
+                            "var": "drink bear"
+                        }
+                    }
+                }
+            ]
+        }        
+    }
+}
+'/

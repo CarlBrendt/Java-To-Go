@@ -25,6 +25,7 @@ class APISettings(BaseSettings):
     minio_secret_key:str
     minio_secure:bool
     minio_bucket:str="java-to-go"
+    validation_orchestrator_base_url:str="http://validation-orchestrator:8095"
 
     # Явный allowlist id из каталога MWS (снимок ответа /v1/models). Обновляйте при появлении новых моделей.
     migration_llm_allowlist: frozenset[str] = frozenset(

@@ -1,0 +1,9 @@
+{
+  "workflowRef": {
+    "name": "case1"
+  },
+  "workflowStartConfig": {
+    "businessKey": "businessKey",
+    "variables": {}
+  }
+}

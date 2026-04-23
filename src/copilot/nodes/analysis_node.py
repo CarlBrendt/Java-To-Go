@@ -11,6 +11,7 @@ from typing import Dict, Any, Optional, List, Set
 from src.copilot.graph_state import MigrationGraphState
 
 logger = logging.getLogger(__name__)
+JAVA_PARSER_CONCURRENCY = 4
 
 
 class JavaParser:
@@ -35,10 +36,13 @@ class JavaParser:
     async def parse_file_content(self, filepath: str) -> Optional[Dict[str, Any]]:
         """Parse a single Java file using the Java tool."""
         try:
-            result = subprocess.run(
+            result = await asyncio.to_thread(
+                subprocess.run,
                 ["java", "-cp", self.jar_path, "JavaParserTool", filepath],
-                capture_output=True, text=True,
-                check=False, timeout=30,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=30,
             )
             if result.returncode != 0:
                 logger.warning(
@@ -89,6 +93,11 @@ class JavaParser:
         # Собираем задачи для параллельной обработки
         tasks = []
         file_paths = []
+        parser_semaphore = asyncio.Semaphore(JAVA_PARSER_CONCURRENCY)
+
+        async def parse_with_limit(filepath: str) -> Optional[Dict[str, Any]]:
+            async with parser_semaphore:
+                return await self.parse_file_content(filepath)
         
         for dirpath, dirnames, filenames in os.walk(root_dir):
             dirnames[:] = [d for d in dirnames if d not in skip_dirs]
@@ -98,7 +107,7 @@ class JavaParser:
                 java_files_found += 1
                 filepath = os.path.join(dirpath, filename)
                 file_paths.append(filepath)
-                tasks.append(self.parse_file_content(filepath))
+                tasks.append(parse_with_limit(filepath))
         
         # Параллельно обрабатываем все файлы
         results = await asyncio.gather(*tasks, return_exceptions=True)

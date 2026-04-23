@@ -56,7 +56,7 @@ COPY java-tools ./java-tools
 COPY main.py .
 COPY src ./src
 COPY entrypoint.sh .
-COPY .golangci.yml .  
+COPY .golangci.yml .
 
 RUN sed -i 's/\r$//' ./entrypoint.sh && \
     chmod +x ./entrypoint.sh

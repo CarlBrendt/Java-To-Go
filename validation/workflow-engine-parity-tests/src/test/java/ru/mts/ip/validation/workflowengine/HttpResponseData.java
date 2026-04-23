@@ -1,0 +1,9 @@
+package ru.mts.ip.validation.workflowengine;
+
+import com.fasterxml.jackson.databind.JsonNode;
+
+record HttpResponseData(
+    int statusCode,
+    JsonNode body
+) {
+}

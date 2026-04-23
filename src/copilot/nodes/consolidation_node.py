@@ -1261,13 +1261,13 @@ def _phase_final_cleanup(
 ) -> Tuple[Dict[str, str], List[str]]:
     """Финальная чистка — улучшенная версия."""
     fixes = []
-    
+
     for fname, content in code.items():
         if not fname.endswith(".go"):
             continue
         
         original = content
-        
+
         # ── НОВОЕ: Чистим Java массивы Object[] → []interface{} ──
         # Object[] → []interface{}
         content = re.sub(r'\bObject\s*\[\s*\]', '[]interface{}', content)
@@ -1279,7 +1279,7 @@ def _phase_final_cleanup(
         content = re.sub(r'\blong\s*\[\s*\]', '[]int64', content)
         # byte[] → []byte
         content = re.sub(r'\bbyte\s*\[\s*\]', '[]byte', content)
-        
+
         # ── НОВОЕ: Чистим Java generics с массивами ──
         # List<Object> → []interface{}
         content = re.sub(r'\bList\s*<\s*Object\s*>', '[]interface{}', content)
@@ -1289,7 +1289,7 @@ def _phase_final_cleanup(
         content = re.sub(r'\bList\s*<\s*Integer\s*>', '[]int', content)
         # List<Long> → []int64
         content = re.sub(r'\bList\s*<\s*Long\s*>', '[]int64', content)
-        
+
         # ── НОВОЕ: Чистим поля типа Object (без массива) ──
         # поле Object → interface{}
         content = re.sub(
@@ -1297,39 +1297,39 @@ def _phase_final_cleanup(
             r'\1\2 interface{} `',
             content
         )
-        
+
         # ── НОВОЕ: Чистим MessageArgs Object[] → MessageArgs []interface{} ──
         content = re.sub(
             r'(\w+)\s+Object\s*\[\s*\]',
             r'\1 []interface{}',
             content
         )
-        
+
         # ── Существующие чистки ──
         # Удаляем Java-аннотации
         content = re.sub(r'@\w+(?:\([^)]*\))?\s*\n', '\n', content)
         content = content.replace('.class', '')
-        
+
         # Фикс struct tags
         content = re.sub(r'`([^`]+)`\s+`([^`]+)`', r'`\1 \2`', content)
-        
+
         # Java generics
         content = re.sub(r'\bOptional<(\w+)>', r'*\1', content)
         content = re.sub(r'\bResponseEntity<(\w+)>', r'\1', content)
-        
+
         # uuid.UUID → string
         content = re.sub(r'\buuid\.UUID\b', 'string', content)
-        
+
         # *error → error
         content = re.sub(r'\*error\b', 'error', content)
-        
+
         # Убираем лишние пустые строки
         content = re.sub(r'\n{4,}', '\n\n\n', content)
-        
+
         if content != original:
             code[fname] = content
             fixes.append(f"{fname}: cleaned Java array syntax")
-    
+
     return code, fixes
 
 

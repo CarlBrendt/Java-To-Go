@@ -9,16 +9,15 @@ from src.copilot.nodes.reporting_node import node_reporting_packaging
 from src.copilot.nodes.consolidation_node import node_consolidate
 from src.copilot.nodes.linter_node import node_lint_fix
 
-
 __all__ = [
     "node_parse_java",
     "node_plan",
     "node_data_layer",
     "node_business_logic",
     "node_generate_api_layer",
-    "node_consolidate",          
+    "node_consolidate",
     "node_verify_node",
     "node_build_check",
     "node_reporting_packaging",
-    "node_lint_fix"
+    "node_lint_fix",
 ]

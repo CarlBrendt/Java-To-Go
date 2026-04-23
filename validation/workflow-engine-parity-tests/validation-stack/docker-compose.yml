@@ -1,0 +1,93 @@
+services:
+  postgresql-wf:
+    image: postgres:16
+    container_name: postgresql-wf
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  postgresql-wf-init:
+    image: postgres:16
+    container_name: postgresql-wf-init
+    depends_on:
+      postgresql-wf:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: 1
+    command:
+      - /bin/sh
+      - -c
+      - psql -h postgresql-wf -U postgres -d postgres -c "CREATE SCHEMA IF NOT EXISTS wf_engine;"
+
+  temporal-postgresql:
+    image: postgres:16
+    container_name: temporal-postgresql
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_DB: temporal
+    ports:
+      - "5431:5432"
+
+  temporal:
+    image: temporalio/auto-setup:1.25.2
+    container_name: temporal
+    depends_on:
+      - temporal-postgresql
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: temporal
+      POSTGRES_SEEDS: temporal-postgresql
+    ports:
+      - "7233:7233"
+      - "8000:8000"
+
+  workflow-engine-java:
+    build:
+      context: ../../..
+      dockerfile: validation/workflow-engine-parity-tests/validation-stack/workflow-engine-java.Dockerfile
+    container_name: workflow-engine-java
+    depends_on:
+      postgresql-wf-init:
+        condition: service_completed_successfully
+      temporal:
+        condition: service_started
+    environment:
+      SERVER_PORT: 9090
+      SECURITY_ENABLED: "false"
+      SECURITY_CLIENT_CREDENTIALS_ENABLED: "false"
+      DB_JDBC_URL: jdbc:postgresql://postgresql-wf:5432/postgres
+      DB_USERNAME: postgres
+      DB_PASSWORD: 1
+      DB_SCHEMA_NAME: wf_engine
+      TEMPORAL_HOST_PORT: temporal:7233
+      REDIS_HOST: localhost
+      OAUTH2_CLIENT_SECRET: local
+      VAULT_ACCESS_TOKEN: local
+    ports:
+      - "9090:9090"
+
+  parity-tests:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: workflow-engine-parity-tests
+    depends_on:
+      - workflow-engine-java
+    command:
+      - mvn
+      - -Dmaven.repo.local=/tmp/.m2
+      - -Dparity.enabled=true
+      - -Dparity.java.base-url=http://workflow-engine-java:9090
+      - -Dparity.go.base-url=http://workflow-engine-go:8080
+      - test

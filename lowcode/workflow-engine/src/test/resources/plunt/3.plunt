@@ -1,0 +1,34 @@
+@startuml
+start
+    /'If_0'/if (name == exit) then (exit)
+        /'act_0'/:act_0;
+    else (нет)
+        /'act_1'/:act_1;
+    endif
+    /'If_1'/if (name == exit) then (exit)
+        /'act_2'/:act_2;
+    else (нет)
+        /'act_3'/:act_3;
+    endif
+stop
+@enduml
+/'
+{
+  "activities" : {
+    "If_0" : { },
+    "act_0" : {
+      "type" : "inject"
+    },
+    "act_1" : {
+      "type" : "inject"
+    },
+    "If_1" : { },
+    "act_2" : {
+      "type" : "inject"
+    },
+    "act_3" : {
+      "type" : "inject"
+    }
+  }
+}
+'/

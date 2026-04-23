@@ -1,0 +1,66 @@
+package ru.mts.workflowmail.service;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.Spy;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.integration.dsl.context.IntegrationFlowContext;
+import ru.mts.workflowmail.controller.dto.Starter;
+import ru.mts.workflowmail.controller.dto.Worker;
+import ru.mts.workflowmail.mapper.DtoMapper;
+import ru.mts.workflowmail.mapper.DtoMapperImpl;
+import ru.mts.workflowmail.service.dto.MailConnection;
+import ru.mts.workflowmail.service.integrationflow.DynamicMailListener;
+import ru.mts.workflowmail.starter.MailListenerContainerWrapper;
+
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+
+
+
+@ExtendWith(MockitoExtension.class)
+class MailReceiverManagerImplTest {
+
+  @InjectMocks
+  private MailReceiverManagerImpl receiverManager;
+  @Spy
+  private DtoMapper mapper = new DtoMapperImpl();
+  @Mock
+  private DynamicMailListener listenerConfig;
+  @Mock
+  private IntegrationFlowContext flowContext;
+
+  @Test
+  void startWorker() {
+    IntegrationFlowContext.IntegrationFlowRegistrationBuilder flowBuidler = Mockito.mock(IntegrationFlowContext.IntegrationFlowRegistrationBuilder.class);
+    MailListenerContainerWrapper mailListenerContainerWrapper = Mockito.mock(MailListenerContainerWrapper.class);
+    when(flowContext.registration(any())).thenReturn(flowBuidler);
+    when(flowBuidler.id(any())).thenReturn(flowBuidler);
+    when(listenerConfig.addMailListener(any())).thenReturn(mailListenerContainerWrapper);
+    MailConnection.MailCertificate cert = new MailConnection.MailCertificate();
+    cert.setTrustStoreType("PEM");
+    cert.setTrustStoreCertificates("f_secret{FDQ0zFqgwsMKr1OAsW3PbL/bEN+Uk/LVmaZcNzi55tfQxLpxSsoZ61151wJoQugV4DEO0tR3FWlUn7ooSrelVQQOOcHEO3LThze8BqYgawdaHVn5YoY8pbNpbrZ7FO9gx60b2q8X/MyGqRKyjs+bhBs3RHphtQAfzmkw4LZuuWXjlumxZa2cMfGpjzDMM3jplJkElutvs2P6v2opJxKeSytjPolseVeGyDVKxUvCaIdx03THuIwhz8tI0BQp2tOHd6FRrgmhBefyla/QS/95OcXRC8buRpOg3yrkcmNSZGjDHf/kVS4P/3ji/Bqq9m/3AyqhW/ZIj2yA6WZQmYzBl8g/7/Ue554RKg7Feiop7q7+leVSR3onlIjM4HdqvLJN5tjvKOsUPduDO6uMKhxM9qiH+k0TZYtjo5OXBY/brezwkasHq5tmFGhJm1Drf5+VzN0/NZ/bcJrZjKENa4LytrbqqGdK+XrYD9q33dOoVYqA/gDIvrI9+FcE5FGDRe10PkZ8omzJHeksbQvyluYoPp/+gBwkA1e7hNUCgHjs7ez3sTiEsvBpCEpekb+L+bTd9laluJ+9awiS6V+Y6TCLQa1GMalfuZ/y2WoEy9fqSFjJujqyRls/NTiEZpjgZXcj8zrWjlZsKIxvGqQ2iRza8HIpF71dLMYdqYZ7bwZQSU7dmEkispjOlb0W0y3libV4OL5KkVb5oo+Nwg0AtVHnY/wb0Hii7S87b8b0WUP/cAx0+E1e9pVTK8UD0cXZ21lsVHO+05oT/8LoFmDqaRGQviyrnde0JsZgLROwrnfOtKBvJacXQS1usbEO6PsdDsb1aRd4xescY9laWaQZoJHZf7VwuiYPncRP2TN0opAog05sicngGM4KSHUWG36sHmI3OMflliISc4v9tEHqkhIaX8LQE9arTnT914faf6aHgoelY7jVwz+HPoPiM7hSh9iNZJd1l46PNqJR6+1r/NHP5IxybBcIecLVgzW7AewGiW0/qg6TWhP4BrOZnkV+57xs/ubxo/xH+BmqMSpV3kTmiEk9bC0/IBYkgvm98qHR+olSH59cM6+HESGfm09S86iopFKMb836fkwIurxyBig/SU2eOydoZN9Co8WWw55axzJd9lfZ8gL2CbfflPbalSZf21JE7moZ4zvuOmKfjXGHsqZz8uqcow+4sRe2k8hqloNGvg85STNj6dfKgvbQtfllF/LBjXH8NN1SYUru2jQLL/RuMNcr/s+JsRUNNFBD1X6ELXVPWYwDAaGig7Oq005YLP1XnXA+Wyk40TMeXora09FkgbnHZhnlshkQjnaXI+vjbLSWS2I4Ra2kaL3baB8qw7cEt2dFpxOrgQoqm/i2GRTR3Y1DUImVflQxJEAAM1C304pBBNk05umGeI2vYkyP4UdUipqsh1SgFSNN9Q6FlzMG+lsG/vI1iaAmoq3YU27WrIzdm29iSJm7xcFSVrlrHJ1Vm8yg3hDlhxoPp7+51XRZT7qw1U5dCMAum0o79M8UrRQ2qzEmXOARKIB0AQawzxD3bd8wu5O/qdO6hYErwTgUiR1S3I/hHx0ufZTEkNtHZP+jxXWj8V8T3grfl2JkI/FjiKh3rZG2Mlj1ZBP11+d9h5BRJ9/OSFn3yp45u3zt+FAh8sHsgmWaRXxkxdQ2RMBFnHY9cYj4ts1LcBk58iebKYGtT81vR9ptBkgXt6zEAG/QLyVPo4JCeY+zb5VdVX78f6KncAPjS8nf+tqyOuOvMgvOvNWJ81+FRqXbcx13uoOZt+OcbRdCGMmxe6y+bZoB9He1eSMHbnrzRkamWdmk+XbSjW7BeJk645B9BewOBCLN9Aaq6nJKtisDeRm/SKobSMi4+SAwhkR04h1cX4DLrs7wmuG/tkEgt1WnuDNvBuXFfMK50lUTHth0oEyxpGjLpjDrcTQAZow71nXW12+Cv41SznqT4J0ubfb5JICM+uJnr689pku5kNmskBQ+PxPmmftpaDLkRBtfcPvnrQtGHHaY1ISFrmtV3wjB5+YTHfEw3seTq5Dsvc00m+q69XL8rDLTKXNA5PQSRFr/1JR/X/K6i1O0+SnjGNZsSQjMyk/xRb7oVHbterWWI0FyLs5ZjG3LMKuyDY127tOF8z/nKqxnvY1bLAlAmBFOVMtoLNLn8yd3/YJhrjbRKPopTuxLP8xZKLQLdSCqDyOeXQ3x+SZprotuEBv8k5zDShe598r/uO2TNpcB8ZZhkkakYuFoWD1ZmaNwp076TKQD3V/VxmOjp8FOLQ9jzBkn5ddOCbEhDRoDZOJ7nN9e+TypPc9D28+ozP+CIUjFWNnz5o6cxIcivfhl+TLP6Bfo0W3HXJdxf7QnCBsTgdznFVjf+IBzQY3DPHWdue1GrHPJhwxRmGzA415nUFLZW5gne9qZQo3BGZIWKiiEFMKqxQHNfroIOWWLoh1coj0WqCD0HBxJCOMLBE2jRPE0YJBp49Rw2paPemfs0nRzJ7ilrIgmFs6obBMRlan4IYu//7xowmZ7XFwP6AezWPOHDqoOL01vOjNJ0hB7ae0+u1sjDqSEMozNHq4HzNifEwnDXulS63q5PZOzkiO0CXeDzjj/bEnXQFlMdoI0krYpp8ZkYFaKg5eGKrqCgSMiMgI0OKXmh2lr9gcIePXR8/CQK5ifyJ/oKdsmu8nrU+ToA3pMC4Ra}");
+    MailConnection.MailAuth mailAuth = new MailConnection.MailAuth();
+    mailAuth.setCertificate(cert);
+    MailConnection connection = new MailConnection();
+    connection.setMailAuth(mailAuth);
+    Starter.MailStarterDetails starterDetails = new Starter.MailStarterDetails();
+    starterDetails.setConnectionDef(connection);
+    Starter starter = new Starter();
+    starter.setMailConsumer(starterDetails);
+    Worker worker = new Worker();
+    worker.setId(UUID.randomUUID());
+    worker.setStarter(starter);
+
+    receiverManager.startWorker(worker);
+
+    String expectedCert = "-----BEGIN CERTIFICATE-----MIIFuTCCA6GgAwIBAgITZgABCSmGsaC5tOowKgAAAAEJKTANBgkqhkiG9w0BAQsFADBVMRIwEAYKCZImiZPyLGQBGRYCcnUxEzARBgoJkiaJk/IsZAEZFgNtdHMxEzARBgoJkiaJk/IsZAEZFgNtc2sxFTATBgNVBAMTDE1UUyBXaW5DQSBHMzAeFw0yNTEwMDkwODEwMzlaFw0yODAxMTEwODEwMzlaMB0xGzAZBgNVBAMTEm1haWwuaW5zaWRlLm10cy5ydTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAN6A2Ul9mmr4u9VIcO7IU5DW5ZJjAPM4NnxhOEDQEdoEj6GVe7YUAsAlCc//hA83CRgeDc7URVb4JHyIQ5cV6lQyZp6VGclLsTCvn927m4U2seBBR39Qx+1uKsPDlWL39lgWzf78s+j4mU6TUWPw5p3699yKLYDA5ilPZMqAu2STSqdfEU1kkwsJGhgke1NLRMrdQ6WBju+ya9B3MrZD0PWZkFS3Y0lUuINu85VEfRw0dqjxzgKOMPGcKwM8yAtZGZDIiZfIPc3X5pZBtBeYwmon6lh6ekecpKSDw3zVa61zFtFBGyR/rJNM+0t5Tl70iZtWhDPqasXU4bkgsa6Dm48CAwEAAaOCAbgwggG0MDAGA1UdEQQpMCeCEm1haWwuaW5zaWRlLm10cy5ydYERdC5nb2xpdHN5bkBtdHMucnUwHQYDVR0OBBYEFKkWbAyeeALcihSql+4g4PKHOKaUMB8GA1UdIwQYMBaAFFnd3fIlxfwdDvPXqyEST8IZyR6bMDgGA1UdHwQxMC8wLaAroCmGJ2h0dHA6Ly9wa2kubXRzLnJ1L3N0YXR1cy9tdHN3aW5jYUczLmNybDBBBggrBgEFBQcBAQQ1MDMwMQYIKwYBBQUHMAKGJWh0dHA6Ly9wa2kubXRzLnJ1L2NlcnQvbXRzd2luY2FHMy5jcnQwDgYDVR0PAQH/BAQDAgWgMDsGCSsGAQQBgjcVBwQuMCwGJCsGAQQBgjcVCIWEzWSomiyGvZ8ngYifd5zRDIE1htTWMKDEDwIBZAIBJTATBgNVHSUEDDAKBggrBgEFBQcDATAbBgkrBgEEAYI3FQoEDjAMMAoGCCsGAQUFBwMBMEQGCSqGSIb3DQEJDwQ3MDUwDgYIKoZIhvcNAwICAgCAMA4GCCqGSIb3DQMEAgIAgDAHBgUrDgMCBzAKBggqhkiG9w0DBzANBgkqhkiG9w0BAQsFAAOCAgEAMaMtCilzhCM9ICFx40N8vGPMKz/WJrO9EeSI2TI0/i/N+PyWmxWnGI/MLNIxaMjyVBECipAgsE8SK/JaY+HP5d1BbViuVzva33zvOsUi6AJV1IM/EoaWfnP5doYCbMKm+OEf57+OufAdNgMWiXrAEDW/GcujHsyDwSztfCzGSXJo7f964mNvneST28lvhbMmPQMBp0J/EhZkXxNk4I6X3MJAWabBLgtjFvGRMvQXXPeq1dNM/wNE5sWNXq2N0xztJiaf0flPbh0n4hFULPtVuu0x5JbAXS52OZsVRPHGKDYW4Xgh9NWrXKVzJCVaZm/rEz5ugGMHSAm+o45ijvlr34un07B5yW5pPefpKhjJ0kFqKyxkb7QTiydgPdI94NFu3xRqgp8rw7vbvIV/0tSXiiv9be9RTv7fJBR9KYfb0TRmZvp678Mi/LRquCzmw9R94b941+S0PKizQgr+vFTOzvJHSh/1XKe7zIa74r1fWSUix4P1F3z8InI6lwJAlH6ZcVpevZRma0b5Q4za0A+jasJlEY2H4mR4m0iTbWDAB/qLFuOkm3k/21/+VcHVXFeOzsrfO2MfN+keBzwPp47jBqs3H776cWv1jQo/cu8NqDJrbGsGre5YuZ6DTCCYjPbwFnhvQwjDWixz7tyuY0aJW/o0BwF/UDJTf3G3eBOqZBU=-----END CERTIFICATE-----";
+    assertEquals(expectedCert, cert.getTrustStoreCertificates());
+  }
+}

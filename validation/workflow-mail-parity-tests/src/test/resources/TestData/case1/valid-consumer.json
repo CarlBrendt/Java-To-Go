@@ -1,0 +1,28 @@
+{
+  "connectionDef": {
+    "protocol": "IMAP",
+    "host": "imap.example.org",
+    "port": 993,
+    "mailAuth": {
+      "username": "mail-user",
+      "password": "mail-password"
+    }
+  },
+  "mailFilter": {
+    "senders": [
+      "sender@example.org"
+    ],
+    "subjects": [
+      "Invoice"
+    ],
+    "startMailDateTime": "2024-01-01T00:00:00Z"
+  },
+  "outputTemplate": {
+    "type": "object",
+    "properties": {
+      "subject": {
+        "type": "string"
+      }
+    }
+  }
+}
